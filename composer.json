@@ -1,0 +1,34 @@
+{
+    "require": {
+        "silverstripe/installer": "^4.2",
+        "phptek/verifiable": "dev-master",
+        "endroid/qr-code": "^3.4",
+        "blockcypher/php-client": "^1.5",
+        "bitwasp/bitcoin": "0.0.35.1 as 0.0.7",
+        "twilio/sdk": "^5.26"
+    },
+    "extra": {
+        "project-files-installed": [
+            ".env.example",
+            "app/.htaccess",
+            "app/_config.php",
+            "app/_config/mysite.yml",
+            "app/_config/theme.yml",
+            "app/src/Page.php",
+            "app/src/PageController.php"
+        ],
+        "public-files-installed": [
+            ".htaccess",
+            "assets/.gitignore",
+            "assets/.htaccess",
+            "assets/web.config",
+            "favicon.ico",
+            "index.php",
+            "install-frameworkmissing.html",
+            "install.php",
+            "web.config"
+        ]
+    },
+    "prefer-stable": true,
+    "minimum-stability": "dev"
+}

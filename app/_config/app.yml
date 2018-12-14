@@ -1,0 +1,25 @@
+---
+Name: myapp
+---
+SilverStripe\Core\Manifest\ModuleManifest:
+  project: app
+    
+# SilverStripe Dependency Injection
+# See: https://docs.silverstripe.org/en/4/developer_guides/extending/injector/
+# Subtitute 'SMSCryptoApp\Bitcoin\BlockcypherClient' for any other implementor of SMSCryptoApp\Bitcoin\ClientProvider
+SilverStripe\Core\Injector\Injector:
+  PaymentClient:
+    class: 'SMSCryptoApp\Bitcoin\BlockCypherClient'
+  # Want to change to a different currency? Subtitute 'SMSCryptoApp\Crypto\Bitcoin' for any other implementor of SMSCryptoApp\Crypto\CryptoCurrency
+  CryptoCurrency:
+    class: 'SMSCryptoApp\Crypto\Bitcoin'
+    
+PageController:
+  dependencies: 
+    paymentClient: '%$PaymentClient'
+    currency: '%$CryptoCurrency'
+    
+SMSCryptoApp\Extension\SiteConfigExtension:
+  dependencies: 
+    paymentClient: '%$PaymentClient'
+    currency: '%$CryptoCurrency'
