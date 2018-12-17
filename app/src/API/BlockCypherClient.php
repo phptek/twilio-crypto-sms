@@ -5,7 +5,7 @@
  * @package twilio-sms-app
  */
 
-namespace SMSCryptoApp\Bitcoin;
+namespace SMSCryptoApp\API;
 
 // SilverStripe: Environment
 use SilverStripe\Core\Environment as Env;
@@ -17,9 +17,12 @@ use BlockCypher\Client\AddressClient;
 use BlockCypher\Client\TXClient;
 use BlockCypher\Api\WebHook;
 
+// App:
+use SMSCryptoApp\Crypto\CryptoCurrency;
+
 /**
- * An implementation of {@link ClientProvider} for querying the Bitcoin
- * blockchain via the BlockCypher Rest API using its various endpoint-specific
+ * An implementation of {@link ClientProvider} for querying the Bitcoin and Ethereum
+ * blockchains via the BlockCypher Rest API using its various endpoint-specific
  * clients.
  *
  * You will need an account with BlockCypher in order to make use of its API:
@@ -32,7 +35,39 @@ class BlockCypherClient
     const UNAVAILABLE = 'Unavailable';
 
     /**
-     * Generates a new Bitcoin address on each call.
+     * @var CryptoCurrency
+     */
+    protected $currency;
+
+    /**
+     * Simple setter.
+     *
+     * @param  string $name
+     * @return void
+     * @throws Exception
+     */
+    public function setCurrency(string $name) : void
+    {
+        $class = ucfirst(strtolower($name));
+        $fqcn = 'SMSCryptoApp\Crypto\\' . $class;
+
+        if (!class_exists($fqcn)) {
+            throw new \Exception('Cryptocurrency was not found!');
+        }
+
+        $this->currency = new $fqcn();
+    }
+
+    /**
+     * @return CryptoCurrency
+     */
+    public function getCurrency() : CryptoCurrency
+    {
+        return $this->currency;
+    }
+
+    /**
+     * Generates a new address on each call.
      *
      * IMPORTANT: in a production app you would manage your own software wallet
      * using a secret private key, stored OFFLINE for security. Remember the golden
@@ -129,16 +164,10 @@ class BlockCypherClient
      * Get an SDK ApiContext for this client.
      *
      * @return ApiContext
-     * @see    https://www.blockcypher.com/dev/bitcoin/
      * @see    https://github.com/blockcypher/php-client/wiki/Sandbox-vs-Live
      */
     private function apiContext() : ApiContext
     {
-        $token = Env::getEnv('BLOCKCYPHER_TOK');
-        $netwk = Env::getEnv('COIN_NETWORK');
-        $currency = Env::getEnv('COIN_CURRENCY');
-
-        // SDK config
         $config = [
             'mode' => 'sandbox',
             'log.LogEnabled' => true,
@@ -148,20 +177,12 @@ class BlockCypherClient
         ];
 
         return ApiContext::create(
-            $netwk,
-            $currency,
+            $this->currency->network(),
+            $this->currency->symbol(),
             'v1',
-            new SimpleTokenCredential($token),
+            new SimpleTokenCredential(Env::getEnv('BLOCKCYPHER_TOK')),
             $config
         );
-    }
-
-    /**
-     * @return string
-     */
-    public function callbackUserAgent() : string
-    {
-        return 'BlockCypher HTTP Invoker';
     }
 
 }

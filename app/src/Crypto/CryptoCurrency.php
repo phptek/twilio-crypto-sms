@@ -30,6 +30,13 @@ interface CryptoCurrency
     public function name() : string;
 
     /**
+     * Return the current currency network.
+     *
+     * @return string
+     */
+    public function network() : string;
+
+    /**
      * Return the current currency's symbol.
      *
      * @return string

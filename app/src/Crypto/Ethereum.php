@@ -11,19 +11,18 @@ namespace SMSCryptoApp\Crypto;
 use SMSCryptoApp\Crypto\CryptoCurrency;
 
 /**
- * Represents the Bitcoin cryptocurrency within the app.
+ * Represents the Ether cryptocurrency within the app.
  */
-class Bitcoin implements CryptoCurrency
+class Ethereum implements CryptoCurrency
 {
-    const PAYMENT_AMOUNT = '0.00001'; // 0.00001 BTC = 1,000 Satoshi
+    const PAYMENT_AMOUNT = '0.00001'; // 0.00001 ETH = 1 mEth
 
     /**
      * {@inheritdoc}
-     * @see https://en.bitcoin.it/wiki/BIP_0021
      */
     public function uriScheme(string $address, string $amount) : string
     {
-        return sprintf('bitcoin:%s?amount=%s', $address, $amount);
+        return sprintf('ethereum:%s?amount=%s', $address, $amount);
     }
 
     /**
@@ -31,7 +30,7 @@ class Bitcoin implements CryptoCurrency
      */
     public function name() : string
     {
-        return 'bitcoin';
+        return 'ethereum';
     }
 
     /**
@@ -39,7 +38,7 @@ class Bitcoin implements CryptoCurrency
      */
     public function network() : string
     {
-        return 'test3';
+        return 'test';
     }
 
     /**
@@ -47,7 +46,7 @@ class Bitcoin implements CryptoCurrency
      */
     public function symbol() : string
     {
-        return 'btc';
+        return 'beth';
     }
 
     /**
@@ -55,7 +54,7 @@ class Bitcoin implements CryptoCurrency
      */
     public function iso4217() : string
     {
-        return 'XBT';
+        return 'ETH';
     }
 
 }

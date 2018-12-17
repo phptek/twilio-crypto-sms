@@ -9,17 +9,8 @@ SilverStripe\Core\Manifest\ModuleManifest:
 # Subtitute 'SMSCryptoApp\Bitcoin\BlockcypherClient' for any other implementor of SMSCryptoApp\Bitcoin\ClientProvider
 SilverStripe\Core\Injector\Injector:
   PaymentClient:
-    class: 'SMSCryptoApp\Bitcoin\BlockCypherClient'
-  # Want to change to a different currency? Subtitute 'SMSCryptoApp\Crypto\Bitcoin' for any other implementor of SMSCryptoApp\Crypto\CryptoCurrency
-  CryptoCurrency:
-    class: 'SMSCryptoApp\Crypto\Bitcoin'
+    class: 'SMSCryptoApp\API\BlockCypherClient'
     
 PageController:
   dependencies: 
     paymentClient: '%$PaymentClient'
-    currency: '%$CryptoCurrency'
-    
-SMSCryptoApp\Extension\SiteConfigExtension:
-  dependencies: 
-    paymentClient: '%$PaymentClient'
-    currency: '%$CryptoCurrency'

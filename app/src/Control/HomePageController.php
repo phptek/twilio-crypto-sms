@@ -60,6 +60,13 @@ class HomePageController extends PageController
         'twiliosend',
     ];
 
+    public function init()
+    {
+        parent::init();
+
+        $this->paymentClient->setCurrency($this->data()->Currency);
+    }
+
     /**
      * Enter data. Scan code. Hit "Send Message".
      *
@@ -74,7 +81,7 @@ class HomePageController extends PageController
     {
         $emptyList = FieldList::create();
         $form = Form::create($this, __FUNCTION__, $emptyList, $emptyList);
-        $paymentAmount = $this->currency::PAYMENT_AMOUNT;
+        $paymentAmount = $this->paymentClient->getCurrency()::PAYMENT_AMOUNT;
 
         // In the event of a form validation problem, keep the original address
         // and QR code. This ensures users can snap a picture of the original QR
@@ -92,7 +99,7 @@ class HomePageController extends PageController
         $fields = FieldList::create([
             TextField::create('PhoneTo', 'Send to Phone Number'),
             TextareaField::create('Body', 'Message'),
-            TextField::create('Amount', sprintf('Price (%s)', $this->currency->iso4217()), (string) $paymentAmount)
+            TextField::create('Amount', sprintf('Price (%s)', $this->paymentClient->getCurrency()->iso4217()), (string) $paymentAmount)
                 ->setAttribute('readonly', true),
             TextField::create(
                 'Address',
@@ -381,7 +388,7 @@ class HomePageController extends PageController
      */
     protected function qrCodeGenerator(string $address, string $amount, string $message) : string
     {
-        $qrCode = new QrCode($this->currency->uriScheme($address, $amount));
+        $qrCode = new QrCode($this->paymentClient->getCurrency()->uriScheme($address, $amount));
         $qrCode->setSize(400);
         $qrCode->setWriterByName('png');
         $qrCode->setLabel($message, 11);
