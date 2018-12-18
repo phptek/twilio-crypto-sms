@@ -141,10 +141,11 @@ class BlockCypherClient
      * @return boolean True if $address is found as an output on a broadcasted
      *                 and unconfirmed transaction. False otherwise.
      */
-    public function isAddressBroadcasted(string $address, $params = []) : bool
+    public function isAddressBroadcasted(string $address) : bool
     {
         $context = $this->apiContext();
         $client = new TXClient($context);
+        $params = ['instart' => 0, 'limit' => 100];
 
         foreach ($client->getUnconfirmed($params) as $tx) {
             $foo[] = $tx;

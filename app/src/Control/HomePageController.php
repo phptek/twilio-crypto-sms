@@ -79,28 +79,19 @@ class HomePageController extends PageController
      */
     public function TwilioSMSForm()
     {
-        $emptyList = FieldList::create();
-        $form = Form::create($this, __FUNCTION__, $emptyList, $emptyList);
         $paymentAmount = $this->paymentClient->getCurrency()::PAYMENT_AMOUNT;
-
-        // In the event of a form validation problem, keep the original address
-        // and QR code. This ensures users can snap a picture of the original QR
-        // using their smartphone app, if they forgot to do so the first time
-        // aound.
-        //
-        // SilverStripe performs this field pre-fill behaviour automatically,
-        // using the {@link Form::getSessionData()} method internally, but only
-        // for selected {@link FormField} subclasses. {@link DatalessField} subclasses,
-        // of which {@link LiteralField} is one, are not a "field" as such;
-        // they're just markup.
-        $paymentAddress = $form->getSessionData()['Address'] ?? $this->paymentClient->getAddress();
+        $paymentAddress = $this->paymentClient->getAddress();
+        $paymentSymbol =  $this->paymentClient->getCurrency()->iso4217();
 
         // Form fields
         $fields = FieldList::create([
             TextField::create('PhoneTo', 'Send to Phone Number'),
             TextareaField::create('Body', 'Message'),
-            TextField::create('Amount', sprintf('Price (%s)', $this->paymentClient->getCurrency()->iso4217()), (string) $paymentAmount)
-                ->setAttribute('readonly', true),
+            TextField::create(
+                'Amount',
+                sprintf('Price (%s)', $paymentSymbol),
+                (string) $paymentAmount
+            )->setAttribute('readonly', true),
             TextField::create(
                 'Address',
                 'Payment Address',
@@ -118,15 +109,10 @@ class HomePageController extends PageController
         ]);
 
         // Form validator
-        $validator = $this->getValidator(['PhoneNumber','Body']);
+        $validator = $this->getValidator(['PhoneTo', 'Body']);
 
         // Form proper
-        $form
-                ->setFields($fields)
-                ->setActions($actions)
-                ->setValidator($validator);
-
-        return $form;
+        return Form::create($this, __FUNCTION__, $fields, $actions, $validator);
     }
 
     /**
@@ -153,9 +139,7 @@ class HomePageController extends PageController
         // Prevent multiple records for the same SMS message
         if ($message && $message->exists()) {
             $form->sessionMessage('You\'ve already sent this message! Please wait while it\'s processed.', 'bad');
-            $this->redirectBack();
-
-            return;
+            return $this->redirectBack();
         }
 
         $paymentAmount = $this->currency::PAYMENT_AMOUNT;
@@ -333,12 +317,8 @@ class HomePageController extends PageController
         $data = $this->getRequest()->postVars();
 
         return ValidateFieldsAndTX::create($fields, function() use($data) {
-                return $this->paymentClient->isAddressBroadcasted(
-                        $data['Address'],
-                        ['instart' => 0, 'limit' => 100]
-                    );
-            }
-        );
+            return $this->paymentClient->isAddressBroadcasted($data['Address']);
+        });
     }
 
     /**
