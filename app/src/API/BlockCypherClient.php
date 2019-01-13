@@ -19,6 +19,7 @@ use BlockCypher\Api\WebHook;
 
 // App:
 use SMSCryptoApp\Crypto\CryptoCurrency;
+use SMSCryptoApp\API\PaymentClientAPI;
 
 /**
  * An implementation of {@link ClientProvider} for querying the Bitcoin and Ethereum
@@ -30,7 +31,7 @@ use SMSCryptoApp\Crypto\CryptoCurrency;
  * - https://www.blockcypher.com/quickstart/
  * - http://blockcypher.github.io/php-client/
  */
-class BlockCypherClient
+class BlockCypherClient implements PaymentClientAPI
 {
     const UNAVAILABLE = 'Unavailable';
 
@@ -40,11 +41,7 @@ class BlockCypherClient
     protected $currency;
 
     /**
-     * Simple setter.
-     *
-     * @param  string $name
-     * @return void
-     * @throws Exception
+     * {@inheritDoc}
      */
     public function setCurrency(string $name) : void
     {
@@ -59,7 +56,7 @@ class BlockCypherClient
     }
 
     /**
-     * @return CryptoCurrency
+     * {@inheritDoc}
      */
     public function getCurrency() : CryptoCurrency
     {
@@ -67,15 +64,7 @@ class BlockCypherClient
     }
 
     /**
-     * Generates a new address on each call.
-     *
-     * IMPORTANT: in a production app you would manage your own software wallet
-     * using a secret private key, stored OFFLINE for security. Remember the golden
-     * rule: "Not your keys? Not your coins".
-     *
-     * Endpoint called: '/v1/btc/test3/addrs'
-     *
-     * @return string
+     * {@inheritDoc}
      */
     public function getAddress() : string
     {
@@ -167,7 +156,7 @@ class BlockCypherClient
      * @return ApiContext
      * @see    https://github.com/blockcypher/php-client/wiki/Sandbox-vs-Live
      */
-    private function apiContext() : ApiContext
+    private function apiContext()
     {
         $config = [
             'mode' => 'sandbox',

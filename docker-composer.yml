@@ -1,0 +1,38 @@
+version: '3'
+services:
+  silverstripe:
+    image: ubuntu:latest
+    restart: always
+    depends_on:
+      - db
+      - lightning
+    build: .
+    ports:
+    - "8080:80"
+    links:
+    - db
+    - bitcoin
+    - lightning
+  db:
+    image: mysql:5.7
+    restart: always
+    volumes:
+      - db_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: twiliodev
+      MYSQL_USER: twiliodev
+      MYSQL_PASSWORD: twiliodev
+  bitcoin:
+    image: bitcoind
+    volumes:
+      # This should match datadir in /etc/bitcoin.conf
+      - btc_data:/var/lib/bitcoin
+  lightning:
+    image: lnd
+    depends_on:
+      - bitcoin
+volumes:
+  db_data: {}
+  btc_data: {}
+  lnd_data: {}

@@ -1,10 +1,10 @@
 {
     "_readme": [
         "This file locks the dependencies of your project to a known state",
-        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
+        "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "1b4f3b8a1d88473d7c3c23acbea63f46",
+    "content-hash": "48b814bfb22d9b3a6c61fe8ac0f59e65",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -1694,6 +1694,57 @@
                 "enum"
             ],
             "time": "2018-10-30T14:36:18+00:00"
+        },
+        {
+            "name": "ndeet/ln-lnd-rest",
+            "version": "0.5.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ndeet/php-ln-lnd-rest.git",
+                "reference": "67a16cef49d18277efb5000268d72f8aa9b65392"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ndeet/php-ln-lnd-rest/zipball/67a16cef49d18277efb5000268d72f8aa9b65392",
+                "reference": "67a16cef49d18277efb5000268d72f8aa9b65392",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "guzzlehttp/guzzle": "^6.2",
+                "php": ">=5.5"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "~1.12",
+                "phpunit/phpunit": "^4.8",
+                "squizlabs/php_codesniffer": "~2.6"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Lnd\\Rest\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "proprietary"
+            ],
+            "authors": [
+                {
+                    "name": "Swagger and contributors",
+                    "homepage": "https://github.com/swagger-api/swagger-codegen"
+                }
+            ],
+            "homepage": "http://swagger.io",
+            "keywords": [
+                "api",
+                "php",
+                "sdk",
+                "swagger"
+            ],
+            "time": "2018-09-14T21:42:07+00:00"
         },
         {
             "name": "nikic/php-parser",
