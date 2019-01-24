@@ -1,32 +1,46 @@
 <?php
 
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+/**
+ * @author  Russell Michell 2019 <russ@theruss.com>
+ * @package twilio-sms-app
  */
 
 namespace SMSCryptoApp\API;
 
+use SMSCryptoApp\Crypto\CryptoCurrency;
+
 /**
- *
- * @author russellm
+ * Base class for common payment logic.
  */
-interface PaymentClientAPI
+abstract class PaymentClientAPI
 {
     /**
-     * Simple setter for the currency to use.
-     *
-     * @param  string $name
-     * @return void
-     * @throws Exception
+     * @var CryptoCurrency
      */
-    public function setCurrency(string $name) : void;
+    protected $currency;
     
     /**
-     * @return CryptoCurrency
+     * {@inheritDoc}
      */
-    public function getCurrency() : string;
+    public function setCurrency(string $name) : void
+    {
+        $class = ucfirst(strtolower($name));
+        $fqcn = 'SMSCryptoApp\Crypto\\' . $class;
+
+        if (!class_exists($fqcn)) {
+            throw new \Exception(sprintf('Cryptocurrency "%s" was not found!', $name));
+        }
+
+        $this->currency = new $fqcn();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function getCurrency() : CryptoCurrency
+    {
+        return $this->currency;
+    }
     
     /**
      * Generates a new address on each call.

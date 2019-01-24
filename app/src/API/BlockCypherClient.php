@@ -31,14 +31,9 @@ use SMSCryptoApp\API\PaymentClientAPI;
  * - https://www.blockcypher.com/quickstart/
  * - http://blockcypher.github.io/php-client/
  */
-class BlockCypherClient implements PaymentClientAPI
+class BlockCypherClient extends PaymentClientAPI
 {
     const UNAVAILABLE = 'Unavailable';
-
-    /**
-     * @var CryptoCurrency
-     */
-    protected $currency;
 
     /**
      * {@inheritDoc}

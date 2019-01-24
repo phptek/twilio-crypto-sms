@@ -18,11 +18,10 @@ use Lnd\Rest\Api\WalletUnlockerApi;
 use \Exception;
 
 // App:
-use SMSCryptoApp\Crypto\CryptoCurrency;
 use SMSCryptoApp\API\PaymentClientAPI;
 
 /**
- * Basic wrapper around ndeet/ln-lnd-rest for interacting with a local or remote
+ * Basic wrapper around ndeet/ln-lnd-rest for interacting with a local
  * lnd daemon over lnd's REST interface.
  * 
  * Tested only on a local instance of lnd 0.5.1-beta.
@@ -77,7 +76,7 @@ use SMSCryptoApp\API\PaymentClientAPI;
  * curl -X POST --cacert /home/russellm/.lnd/tls.cert -d '{"wallet_password":"YWxpY2V0ZXN0MTIz"}' --header "$MACAROON_HEADER" https://localhost:8001/v1/unlockwallet
  */
 
-class LNDClient implements PaymentClientAPI
+class LNDClient extends PaymentClientAPI
 {
     /**
      * Lock file that tells us whether or not our lnd daemon's wallet is
@@ -221,19 +220,22 @@ class LNDClient implements PaymentClientAPI
      * Subsequent requests will result in a 404.
      * 
      * @param  string $memo
+     * @param  int    $value    (In Satoshi)
+     * @param  string $fallback The fallback address to use, for non-Lightning wallets
+     * @param  array  $data     (See constructor args for {@link LnrpcInvoice})
+     * @param  string $inv      Passed by reference to allow invoice to be re-used
      * @return mixed null|TBC
      */
-    public function addInvoice($memo = '', $value = 1001, $expiry = 3600)
+    public function addInvoice(string $memo = '', int $value = 1001, string $fallback, array $data = [], string &$inv)
     {
         $apiInstance = new LightningApi($this->client(), $this->apiConfig);
         $result = null;
 
         // Let's generate an lightning invoice.
-        $invoice = new LnrpcInvoice([
+        $invoice = new LnrpcInvoice(array_merge($data, [
             'memo' => $memo,
             'value' => $value,
-            'expiry' => $expiry,
-        ]);
+        ]));
 
         try {
             $result = $apiInstance->addInvoice($invoice);
@@ -272,6 +274,19 @@ class LNDClient implements PaymentClientAPI
         $request->setPushSat();
         
         return $apiInstance->openChannelSync($request);
+    }
+    
+    /**
+     * @param  string $fundingTxid
+     * @param  int    $outputIndex
+     * @return bool   True if channel closed OK, false otherwise.
+     */
+    public function closeChannel(string $fundingTxid, int $outputIndex) : bool
+    {
+        $apiInstance = new LightningApi($this->client(), $this->apiConfig);
+        $response = $apiInstance->closeChannel($fundingTxid, $outputIndex);
+        
+        return $response->getSuccess();
     }
     
     /**
@@ -333,6 +348,21 @@ class LNDClient implements PaymentClientAPI
     }
     
     /**
+     * List the node's channels, using application-specific defaults passed to
+     * listChannels().
+     * 
+     * @return array  \Lnd\Rest\Model\LnrpcChannel[]
+     * @see https://api.lightning.community/rest/index.html#get-v1-channels
+     */
+    public function listchannels() : string
+    {
+        $apiInstance = new LightningApi($this->client(), $this->apiConfig);
+        $response = $apiInstance->listChannels(true, false, false, true);
+        
+        return $response->getChannels();
+    }
+    
+    /**
      * Alias of initwalletrequest().
      */
     public function createWallet()
@@ -354,6 +384,23 @@ class LNDClient implements PaymentClientAPI
     public function getBalance() : string
     {
         return $this->walletbalance();
+    }
+    
+    /**
+     * Fetch an appropriate channel_point for a channel identified by a remote
+     * (the channel's "other") public key.
+     * 
+     * @param  string $remotePubkey The public key that identifies the desired channel.
+     * @return array  A 2-value array: Value 0 is the funding_txid and value 1
+     *                is the output_index.
+     */
+    public function getChannelPoint(string $remotePubkey) : string
+    {
+        foreach ($this->listchannels() as $channel) {
+            if ($channel->getRemotePubkey() === $remotePubkey) {
+                return explode(':', $channel->getChannelPoint());
+            }
+        }
     }
 
     /**
