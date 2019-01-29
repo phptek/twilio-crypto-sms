@@ -20,7 +20,7 @@ abstract class PaymentClientAPI
     protected $currency;
     
     /**
-     * {@inheritDoc}
+     * Get the current currency.
      */
     public function setCurrency(string $name) : void
     {
@@ -35,7 +35,7 @@ abstract class PaymentClientAPI
     }
 
     /**
-     * {@inheritDoc}
+     * Get the currently set currency.
      */
     public function getCurrency() : CryptoCurrency
     {
@@ -46,8 +46,8 @@ abstract class PaymentClientAPI
      * Generates a new address on each call.
      *
      * IMPORTANT: in a production app you would manage your own software wallet
-     * using a secret private key, stored OFFLINE for security. Remember the golden
-     * rule: "Not your keys? Not your coins".
+     * using a SECRET private key, stored OFFLINE WITH BACKUPS. Remember the golden
+     * rule: "Not your keys. Not your coins".
      *
      * @return string
      */

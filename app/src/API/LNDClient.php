@@ -223,8 +223,10 @@ class LNDClient extends PaymentClientAPI
      * @param  int    $value    (In Satoshi)
      * @param  string $fallback The fallback address to use, for non-Lightning wallets
      * @param  array  $data     (See constructor args for {@link LnrpcInvoice})
-     * @param  string $inv      Passed by reference to allow invoice to be re-used
+     * @param  string $inv      Passed by reference to allow LND-generated invoice
+     *                          to be re-used - in a QR code for example
      * @return mixed null|TBC
+     * @todo Do some math on $value to check it is in Satoshi or just left-pad with zeros
      */
     public function addInvoice(string $memo = '', int $value = 1001, string $fallback, array $data = [], string &$inv)
     {
