@@ -28,7 +28,7 @@ use Twilio\Rest\Client as TwilioClient;
 
 // App: Message data-model and validation
 use SMSCryptoApp\Model\Message;
-use SMSCryptoApp\Form\ValidateFieldsAndTX;
+use SMSCryptoApp\Form\MessageValidator;
 
 /**
  * Homepage controller complete with SMS Sending form.
@@ -64,7 +64,7 @@ class HomePageController extends PageController
     {
         parent::init();
 
-        $this->paymentClient->setCurrency($this->data()->Currency);
+        $this->paymentClient->setCurrency($this->data()->Currency ?: 'Bitcoin');
     }
 
     /**
@@ -209,6 +209,7 @@ class HomePageController extends PageController
      *
      * @param  HTTPRequest $request
      * @return mixed null|HTTPResponse
+     * @todo $request->getHeader('X-EventType') & $request->getHeader('X-EventId') ??
      */
     public function cbconfirmedpayment(HTTPRequest $request)
     {
@@ -216,8 +217,6 @@ class HomePageController extends PageController
         if (
                 !$request->isPOST() ||
                 !$request->param('ID')
-              //  !$request->getHeader('X-EventType') ||
-              //  !$request->getHeader('X-EventId')
             ) {
             // Bad request
             return $this->httpError('400');
@@ -316,7 +315,7 @@ class HomePageController extends PageController
     {
         $data = $this->getRequest()->postVars();
 
-        return ValidateFieldsAndTX::create($fields, function() use($data) {
+        return MessageValidator::create($fields, function() use($data) {
             return $this->paymentClient->isAddressBroadcasted($data['Address']);
         });
     }

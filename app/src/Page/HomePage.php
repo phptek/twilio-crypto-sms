@@ -3,7 +3,7 @@
 namespace SMSCryptoApp\Page;
 
 use Page;
-use SMSCryptoApp\Crypto\CryptoCurrency;
+use SMSCryptoApp\Crypto\Currency;
 use SilverStripe\Core\ClassInfo;
 use SilverStripe\Forms\DropdownField;
 
@@ -22,10 +22,10 @@ class HomePage extends Page
      */
     public function getCMSFields()
     {
+        // A map of coin classes
         $coins = array_map(function($v) {
-                    $parts = explode('\\', $v);
-                    return end($parts);
-                }, ClassInfo::implementorsOf(CryptoCurrency::class)
+                    return ClassInfo::shortName($v);
+                }, ClassInfo::implementorsOf(Currency::class)
             );
 
         $fields = parent::getCMSFields();
@@ -35,6 +35,13 @@ class HomePage extends Page
         );
 
         return $fields;
+    }
+    
+    public function getControllerName()
+    {
+        parent::getControllerName();
+        
+        return HomePageController::class;
     }
 
 }

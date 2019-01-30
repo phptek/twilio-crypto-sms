@@ -8,12 +8,12 @@
 namespace SMSCryptoApp\Crypto;
 
 // Application: Crypto
-use SMSCryptoApp\Crypto\CryptoCurrency;
+use SMSCryptoApp\Crypto\Currency;
 
 /**
  * Represents the Bitcoin cryptocurrency within the app.
  */
-class Bitcoin implements CryptoCurrency
+class Bitcoin implements Currency
 {
     const PAYMENT_AMOUNT = '0.00001'; // 0.00001 BTC = 1,000 Satoshi
 

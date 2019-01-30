@@ -18,7 +18,7 @@ use BlockCypher\Client\TXClient;
 use BlockCypher\Api\WebHook;
 
 // App:
-use SMSCryptoApp\Crypto\CryptoCurrency;
+use SMSCryptoApp\Crypto\Currency;
 
 /**
  * An implementation of {@link ClientProvider} for querying the Bitcoin and Ethereum
@@ -61,7 +61,7 @@ class BlockCypherClient
     /**
      * @return CryptoCurrency
      */
-    public function getCurrency() : CryptoCurrency
+    public function getCurrency() : Currency
     {
         return $this->currency;
     }
@@ -132,14 +132,17 @@ class BlockCypherClient
     }
 
     /**
-     * Queries the network for unconfirmed transactions at around the time this
-     * method is called. It can be used to filter those containing a given address,
-     * passed-in by $filter['address'].
+     * Queries the network for unconfirmed transactions broadcasted at around the
+     * time this method is called. It can be used to filter transactions containing
+     * a given address passed-in by: $filter['address'].
      *
      * @param  string  $address
      * @param  array   $params
      * @return boolean True if $address is found as an output on a broadcasted
      *                 and unconfirmed transaction. False otherwise.
+     * @todo   In a production system, use BlockCypher's "confidence factor" to determine
+     *         liklihood of doubles-ends.
+     * @see    https://www.blockcypher.com/dev/bitcoin/#confidence-factor
      */
     public function isAddressBroadcasted(string $address) : bool
     {
@@ -148,11 +151,8 @@ class BlockCypherClient
         $params = ['instart' => 0, 'limit' => 100];
 
         foreach ($client->getUnconfirmed($params) as $tx) {
-            $foo[] = $tx;
             foreach ($tx->getOutputs() as $output) {
-                if (
-                        in_array($address, (array) $output->getAddresses())
-                    ) {
+                if (in_array($address, (array) $output->getAddresses())) {
                     return true;
                 }
             }
@@ -173,7 +173,7 @@ class BlockCypherClient
             'mode' => 'sandbox',
             'log.LogEnabled' => true,
             'log.FileName' => '/tmp/BlockCypher.log',
-            'log.LogLevel' => 'DEBUG', // PLEASE USE 'INFO' LEVEL FOR LOGGING IN LIVE ENVIRONMENTS
+            'log.LogLevel' => 'DEBUG',
             'validation.level' => 'log',
         ];
 

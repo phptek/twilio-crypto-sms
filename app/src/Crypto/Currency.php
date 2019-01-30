@@ -8,10 +8,11 @@
 namespace SMSCryptoApp\Crypto;
 
 /**
- * All concrete classes as CryptoCurrency implementors, should be able to be
- * exchanged for one-another.
+ * All concrete classes as implementors, should be able to be exchanged for one-another.
+ * This is especially useful for example when adding new coins to the system, to
+ * use for payment.
  */
-interface CryptoCurrency
+interface Currency
 {
     /**
      * Return a currency-specific populated URI scheme.
@@ -44,7 +45,7 @@ interface CryptoCurrency
     public function symbol() : string;
 
     /**
-     * Return this currency's ISO4217 compatible currency code.
+     * Return this currency's ISO4217 compatible currency code or equivalent.
      *
      * @see    https://en.wikipedia.org/wiki/ISO_4217#Cryptocurrencies
      * @return string

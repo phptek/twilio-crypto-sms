@@ -10,7 +10,7 @@ use SilverStripe\Forms\RequiredFields;
  * to the constructor that must return a boolean true for callers to be confident
  * that the relevant form data is valid.
  */
-class ValidateFieldsAndTX extends RequiredFields
+class MessageValidator extends RequiredFields
 {
     /**
      * @var callable
