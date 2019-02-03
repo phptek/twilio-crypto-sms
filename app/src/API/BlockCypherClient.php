@@ -172,7 +172,7 @@ class BlockCypherClient
         $config = [
             'mode' => 'sandbox',
             'log.LogEnabled' => true,
-            'log.FileName' => '/tmp/BlockCypher.log',
+            'log.FileName' => '/var/tmp/BlockCypher.log', // <-- use /var/tmp for peristent logging
             'log.LogLevel' => 'DEBUG',
             'validation.level' => 'log',
         ];

@@ -9,6 +9,7 @@ namespace SMSCryptoApp\Page;
 
 // SilverStripe: Environment, Control and Requests
 use SilverStripe\Core\Environment as Env;
+use SilverStripe\Control\Director;
 use PageController;
 use SilverStripe\Control\HTTPRequest;
 
@@ -63,6 +64,13 @@ class HomePageController extends PageController
     public function init()
     {
         parent::init();
+        
+        // Ensure the expected env vars are available to us
+        foreach (['BLOCKCYPHER_TOK', 'TWILIO_PHONE_FROM', 'TWILIO_SID', 'TWILIO_TOK'] as $var) {
+            if (!Env::getEnv($var)) {
+                throw new \Exception(sprintf('Environment variable %s is not set!', $var));
+            }
+        }
 
         $this->paymentClient->setCurrency($this->data()->Currency ?: 'Bitcoin');
     }
@@ -85,7 +93,8 @@ class HomePageController extends PageController
 
         // Form fields
         $fields = FieldList::create([
-            TextField::create('PhoneTo', 'Send to Phone Number'),
+            TextField::create('PhoneTo', 'Send to Phone Number')
+                ->setAttribute('placeholder', 'e.g +64 12 123 4567'),
             TextareaField::create('Body', 'Message'),
             TextField::create(
                 'Amount',
@@ -141,8 +150,8 @@ class HomePageController extends PageController
             $form->sessionMessage('You\'ve already sent this message! Please wait while it\'s processed.', 'bad');
             return $this->redirectBack();
         }
-
-        $paymentAmount = $this->currency::PAYMENT_AMOUNT;
+        
+        $paymentAmount = $this->paymentClient->getCurrency()::PAYMENT_AMOUNT;
 
         Message::create([
             'Body'      => $data['Body'],
@@ -160,7 +169,7 @@ class HomePageController extends PageController
             'event' => 'tx-confirmation',
             'address' => $data['Address'],
         ];
-        $url = sprintf('%s/home/cbconfirmedpayment/%s', Env::getEnv('NGROK_HOST'), $hash);
+        $url = Director::absoluteURL(sprintf('/home/cbconfirmedpayment/%s', $hash));
 
         try {
             $this->paymentClient->subscribeHook($filter, $url);
@@ -194,11 +203,10 @@ class HomePageController extends PageController
             [
                 'body' => $message->Body,
                 'from' => Env::getEnv('TWILIO_PHONE_FROM'),
-                'statusCallback' => sprintf(
-                    '%s/home/cbtwilio/%s',
-                    Env::getEnv('NGROK_HOST'),
+                'statusCallback' => Director::absoluteURL(sprintf(
+                    '/home/cbtwilio/%s',
                     $this->generateID($message->toMap())
-                ),
+                )),
             ]
         );
     }
@@ -233,7 +241,7 @@ class HomePageController extends PageController
         }
 
         // If we've received the balance, we send the SMS
-        // We use the "cached" Value, to hedge against wild price volatility
+        // We use the "cached" amount, to hedge against price volatility
         if ($this->hasBalance($message->Address, $message->Amount)) {
             // Update Message record status to PAID
             $message
