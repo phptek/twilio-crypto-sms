@@ -135,29 +135,29 @@ class BlockCypherClient
      * Queries the network for unconfirmed transactions broadcasted at around the
      * time this method is called. It can be used to filter transactions containing
      * a given address passed-in by: $filter['address'].
+     * 
+     * In a production system, utilise BlockCypher's "confidence factor" to determine
+     * liklihood of double-spends.
      *
      * @param  string  $address
-     * @param  array   $params
-     * @return boolean True if $address is found as an output on a broadcasted
-     *                 and unconfirmed transaction. False otherwise.
-     * @todo   In a production system, use BlockCypher's "confidence factor" to determine
-     *         liklihood of doubles-ends.
+     * @return bool    True if $address is found as an output on a broadcasted
+     *                 and unconfirmed transaction. Returns false otherwise.
      * @see    https://www.blockcypher.com/dev/bitcoin/#confidence-factor
      */
     public function isAddressBroadcasted(string $address) : bool
     {
         $context = $this->apiContext();
-        $client = new TXClient($context);
-        $params = ['instart' => 0, 'limit' => 100];
+        $txClient = new TXClient($context);
+        $params = ['instart' => 0, 'limit' => 150];
 
-        foreach ($client->getUnconfirmed($params) as $tx) {
+        foreach ($txClient->getUnconfirmed($params) as $tx) {
             foreach ($tx->getOutputs() as $output) {
                 if (in_array($address, (array) $output->getAddresses())) {
                     return true;
                 }
             }
         }
-
+        
         return false;
     }
 

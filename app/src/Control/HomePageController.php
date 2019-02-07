@@ -137,7 +137,8 @@ class HomePageController extends PageController
      * @param  Form  $form
      * @return mixed null|void
      * @todo   What happens when an API call fails, yet users have already paid?
-     *          - Use Message record to contact customers and in accordance with jurisdictional law, reimburse.
+     *          Use Message record to contact customers and in accordance with
+     *          jurisdictional law, reimburse.
      */
     public function smsHandler(array $data, Form $form)
     {
@@ -165,8 +166,13 @@ class HomePageController extends PageController
         ])->write();
 
         // Initialise a WebHook connection on our web API service
+        // We will only receive traffic from Blockcypher to our endpoint, when
+        // 2 confirmations on TX's containing $data['Address'] have occurred.
+        // The no. confirmations is important. This could be made a SilverStripe
+        // "Settings" area parameter.
         $filter = [
             'event' => 'tx-confirmation',
+            'confirmations' => 2,
             'address' => $data['Address'],
         ];
         $url = Director::absoluteURL(sprintf('/home/cbconfirmedpayment/%s', $hash));
@@ -269,7 +275,7 @@ class HomePageController extends PageController
      * 2). MessageStatus: "delivered"
      *
      * @param  HTTPRequest $request
-     * @return void
+     * @return null
      */
     public function cbtwilio(HTTPRequest $request)
     {
@@ -313,8 +319,11 @@ class HomePageController extends PageController
     }
 
     /**
-     * Validate each form submission. Includes empty field validation as well
-     * as an unconfirmed transaction broadcast check for $data['address'].
+     * Validate each form submission. Includes:
+     * 
+     * - Basic empty field validation
+     * - That a TX containing $data['address'] as been broadcast. Checks both
+     *   unconfirmed and confirmed transactions.
      *
      * @param  array     $fields An array of fields to validate.
      * @return Validator
