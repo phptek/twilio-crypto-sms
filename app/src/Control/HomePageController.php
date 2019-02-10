@@ -12,6 +12,7 @@ use SilverStripe\Core\Environment as Env;
 use SilverStripe\Control\Director;
 use PageController;
 use SilverStripe\Control\HTTPRequest;
+use SilverStripe\SiteConfig\SiteConfig;
 
 // SilverStripe: Forms, fields and validation
 use SilverStripe\Forms\Form;
@@ -172,7 +173,7 @@ class HomePageController extends PageController
         // "Settings" area parameter.
         $filter = [
             'event' => 'tx-confirmation',
-            'confirmations' => 2,
+            'confirmations' => (int) SiteConfig::current_site_config()->getField('Confirmations') ?: 6,
             'address' => $data['Address'],
         ];
         $url = Director::absoluteURL(sprintf('/home/cbconfirmedpayment/%s', $hash));
