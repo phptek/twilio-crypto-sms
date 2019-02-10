@@ -14,3 +14,7 @@ SilverStripe\Core\Injector\Injector:
 PageController:
   dependencies: 
     paymentClient: '%$PaymentClient'
+    
+SilverStripe\SiteConfig\SiteConfig:
+  extensions:
+    - SMSCryptoApp\Model\SettingsExtension

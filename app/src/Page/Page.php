@@ -20,11 +20,13 @@ namespace {
             $pages = Page::get()->filter(['Title' => $thanksPageTitle]);
             
             if (!$pages->first()) {
-                Page::create([
+                $page = Page::create([
                     'Title' => $thanksPageTitle,
                     'Content' => '<p>Thanks! Your message is winging its way home</p>',
-                ])->write();
-                DB::alteration_message('Created thanks page.');
+                ]);
+                $page->write();
+                $page->publishRecursive();
+                DB::alteration_message("Published $thanksPageTitle page.");
             }
         }
     }
