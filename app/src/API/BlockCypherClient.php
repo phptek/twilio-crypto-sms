@@ -14,6 +14,7 @@ use SilverStripe\Core\Environment as Env;
 use BlockCypher\Auth\SimpleTokenCredential;
 use BlockCypher\Rest\ApiContext;
 use BlockCypher\Client\AddressClient;
+use BlockCypher\Api\Address;
 use BlockCypher\Client\TXClient;
 use BlockCypher\Api\WebHook;
 
@@ -159,6 +160,21 @@ class BlockCypherClient
         }
         
         return false;
+    }
+    
+    /**
+     * Determine the number of confirmations this address has.
+     * 
+     * @param  string $address
+     * @return int
+     */
+    public function addressHasConfirations(string $address) : int
+    {
+        $context = $this->apiContext();
+        $client = new AddressClient();
+        $addr = $client->get($address, [], $context);
+        
+        return $addr->getNTx();
     }
 
     /**

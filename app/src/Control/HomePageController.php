@@ -13,6 +13,7 @@ use SilverStripe\Control\Director;
 use PageController;
 use SilverStripe\Control\HTTPRequest;
 use SilverStripe\SiteConfig\SiteConfig;
+use SilverStripe\View\Requirements;
 
 // SilverStripe: Forms, fields and validation
 use SilverStripe\Forms\Form;
@@ -20,7 +21,6 @@ use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\TextField;
 use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\TextareaField;
-use SilverStripe\Forms\FormAction;
 
 // Endroid: QR Code generation
 use Endroid\QrCode\QrCode;
@@ -30,7 +30,7 @@ use Twilio\Rest\Client as TwilioClient;
 
 // App: Message data-model and validation
 use SMSCryptoApp\Model\Message;
-use SMSCryptoApp\Form\MessageValidator;
+use SilverStripe\Forms\RequiredFields;
 
 /**
  * Homepage controller complete with SMS Sending form.
@@ -60,12 +60,20 @@ class HomePageController extends PageController
         'cbtwilio',
         'cbconfirmedpayment',
         'twiliosend',
+        'confirmation',
+    ];
+    
+    /**
+     * @var array
+     */
+    private static $url_handlers = [
+        '/home//$Address' => 'confirmation',
     ];
 
     public function init()
-    {
+    {        
         parent::init();
-        
+
         // Ensure the expected env vars are available to us
         foreach (['BLOCKCYPHER_TOK', 'TWILIO_PHONE_FROM', 'TWILIO_SID', 'TWILIO_TOK'] as $var) {
             if (!Env::getEnv($var)) {
@@ -74,6 +82,11 @@ class HomePageController extends PageController
         }
 
         $this->paymentClient->setCurrency($this->data()->Currency ?: 'Bitcoin');
+        
+        // Payment UI interactions
+        Requirements::css('client/css/dist/ui.css');
+        Requirements::javascript('client/js/lib/jquery/jquery-3.3.1.min.js');
+        Requirements::javascript('client/js/dist/ui.js');        
     }
 
     /**
@@ -113,54 +126,40 @@ class HomePageController extends PageController
             ),
         ]);
 
-        // Form actions
-        $actions = FieldList::create([
-            FormAction::create('smsHandler', 'Send Message')
-        ]);
-
-        // Form validator
+        // Form validator. There is no manual "submission" here, but SilverStripe
+        // marks these fields as required using this process.
         $validator = $this->getValidator(['PhoneTo', 'Body']);
 
         // Form proper
-        return Form::create($this, __FUNCTION__, $fields, $actions, $validator);
+        return Form::create($this, __FUNCTION__, $fields, FieldList::create(), $validator);
     }
 
     /**
-     * Called on submission of the form. This will perform the following tasks:
+     * Called on submission of the form (if submit button used) or from JavaScript
+     * XHR calls. It performs the following tasks:
      *
-     * - Create a Message object record containing form POST data
-     * - Setup an event callback that upon discovery of transactions involving
-     *   the POSTed address POSTs to the given callback.
+     * - Creates a Message object record containing form POST data
+     * - Sets up an event callback that upon discovery of transactions involving
+     *   the POSTed address, will POST to the given callback.
      * - The callback checks the response for a valid balance for the address
-     * - If the balance is OK: Sends SMS message, updates Message status, displays confirmation.
+     * - If the balance is OK: Sends SMS message + updates Message status + displays confirmation.
      *
      * @param  array $data
-     * @param  Form  $form
-     * @return mixed null|void
+     * @return mixed null|BlockCypher\Api\WebHook
      * @todo   What happens when an API call fails, yet users have already paid?
      *          Use Message record to contact customers and in accordance with
      *          jurisdictional law, reimburse.
      */
-    public function smsHandler(array $data, Form $form)
+    public function doPayment(array $data)
     {
-        // Initialise a Message record (And check that one doesn't already exist)
         $hash = $this->generateID($data);
-        $message = Message::get()->filter(['MsgHash' => $hash]);
-
-        // Prevent multiple records for the same SMS message
-        if ($message && $message->exists()) {
-            $form->sessionMessage('You\'ve already sent this message! Please wait while it\'s processed.', 'bad');
-            return $this->redirectBack();
-        }
-        
-        $paymentAmount = $this->paymentClient->getCurrency()::PAYMENT_AMOUNT;
 
         Message::create([
             'Body'      => $data['Body'],
             'PhoneTo'   => $data['PhoneTo'],
             'PhoneFrom' => Env::getEnv('TWILIO_PHONE_FROM'),
             'Address'   => $data['Address'],
-            'Amount'    => $paymentAmount,
+            'Amount'    => $this->paymentClient->getCurrency()::PAYMENT_AMOUNT,
             'MsgHash'   => $hash,
             'MsgStatus' => Message::MSG_PENDING,
             'PayStatus' => Message::PAY_PENDING,
@@ -177,15 +176,8 @@ class HomePageController extends PageController
             'address' => $data['Address'],
         ];
         $url = Director::absoluteURL(sprintf('/home/cbconfirmedpayment/%s', $hash));
-
-        try {
-            $this->paymentClient->subscribeHook($filter, $url);
-            $this->redirect('/thanks');
-        } catch (\Exception $e) {
-            $form->sessionMessage('Hmmmm. Something went wrong.', 'bad');
-
-            return;
-        }
+        
+        return $this->paymentClient->subscribeHook($filter, $url);
     }
 
     /**
@@ -331,11 +323,40 @@ class HomePageController extends PageController
      */
     public function getValidator(array $fields)
     {
-        $data = $this->getRequest()->postVars();
-
-        return MessageValidator::create($fields, function() use($data) {
-            return $this->paymentClient->isAddressBroadcasted($data['Address']);
-        });
+        return RequiredFields::create($fields);
+    }
+    
+    /**
+     * Internal endpoint used by the application to get the state of transactions
+     * containing the address as an output. Used to drive e.g. UI components for
+     * user feedback. Also handles the trigger to payment API to start it listening
+     * for appropriate TX's and subscribing to is responses. Ideally, we'd do this
+     * using WebSockets...
+     * 
+     * @param  HTTPRequest $request
+     * @return mixed null|string Null if invalid params were passed, otherwise a
+     *                           JSON encoded string.
+     */
+    public function confirmation(HTTPRequest $request) : string
+    {
+        $client = $this->paymentClient;
+        
+        if (!$request->isAjax() || !$request->isPOST()) {
+            return $this->httpError(403);
+        }
+        
+        // Subscribe to BlockCypher API for TX's containing incoming address
+        $this->doPayment($request->postVars());
+        
+        if ($client->isAddressBroadcasted($request->postVar('Address'))) {
+            $this->getResponse()->setBody($json = json_encode(['U' => 0]));
+        } else {        
+            $this->getResponse()->setBody(
+                $json = json_encode(['C' => $client->addressHasConfirations($request->postVar('Address'))])
+            );
+        }
+        
+        return $json;
     }
 
     /**
