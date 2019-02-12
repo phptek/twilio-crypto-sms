@@ -1,36 +1,38 @@
 /**
  * Simple jQuery routines to pass some feedback to users as they wait for
- * Bitcoin transactions to confirm. This would likely be improved using VueJS or
- * ReactJS.
+ * Bitcoin transactions to confirm. This would be improved using Vue or React.
  */
+
+// The frequency at which we will hit our own endpoint
+var interval = 10000;
 
 (function($) {
     $(function() {
-        $('#Form_TwilioSMSForm input').on('blur', function(e) {
-
-            if (!(
-                $('[name^="Body"]').val().length &&
-                $('[name^="PhoneTo"]').val().length &&
-                $('[name^="Address"]').val().length &&
-                $('[name^="Amount"]').val().length
-            )) {
-                console.log('No form values');
+        $('#Form_TwilioSMSForm input, #Form_TwilioSMSForm textarea').blur(function(e) {
+            var body = $('[name="Body"]').val();
+            var phone = $('[name="PhoneTo"]').val();
+            var address = $('[name="Address"]').val();
+            var amount = $('[name="Amount"]').val();
+            var endpointConf = $(this).closest('form').data('uri-confirmation');
+            var endpointThanks = $(this).closest('form').data('uri-thanks');
+            
+            if (!(body.length && phone.length && address.length && amount.length)) {
                 return;
             }
 
             // Repeatedly hit the endpoint until such time as we redirect.
-            // This is super-hacky, but does the job to illustrate the point.
-            window.setInterval(function() {
+            // This is super-hacky, we should use websockets, but it does the job.
+            setInterval(function() {
                 $.ajax({
                     'type': 'POST',
                     'dataType': 'json',
                     'data': {
-                        'Body': $('[name^="Body"]').val(),
-                        'PhoneTo': $('[name^="PhoneTo"]').val(),
-                        'Address': $('[name^="Address"]').val(),
-                        'Amount': $('[name^="Amount"]').val()
+                        'Body': body,
+                        'PhoneTo': phone,
+                        'Address': address,
+                        'Amount': amount
                     },
-                    'url': '/home/confirmation/'
+                    'url': endpointConf
                 })
                 // Exceptions from API clients can generate errors
                 // fail() === error()
@@ -41,41 +43,40 @@
                 .done(function(data, textStatus, jqXHR) {
                     var json = JSON.stringify(data);
                     var status = json.U ? json.U : json.C;
-                    var minConfirmations = $.data('num-confirmations');
-                    var isConfirmed = typeof status === int && status <= minConfirmations;
+                    var minConfirmations = $('[name="MinConfs"]').val();
+                    var isConfirmed = (typeof status === 'number') && status <= minConfirmations;
                     var isNotConfirmed = json.U;
+                    var isDone = (typeof status === 'number') && status > minConfirmations;
 
-                    // 1). Show spinner, while minConfirmations or unconfirmed
+                    // Redifrect as soon as a positive result comes back
+                    if (isDone) {
+                        return location.href = endpointThanks;
+                    }
+
+                    // Show animation while minConfirmations or unconfirmed
                     if (isConfirmed || isNotConfirmed) {
-                        var message = (typeof status === int) ? 'Confirmations: ' + status : status;
+                        var message = ((typeof status === 'number') ? 'Confirmations: ' + status : status) + '...';
                         doSpinner(message);
                     }
-
-                    // 2). Redirect to Thank You page
-                    if (jqXHR.status === 200) {
-                        // As soon as a positive result comes back from the endpoint 
-                        console.log(data);
-                        return window.location.href = '/thanks'; // TODO use data-attr
-                    }
                 });
-            }, 5000);
+            }, interval);
         });
     });
 })(jQuery);
 
 
 /**
- * Simply attach a CSS spinner to the DOM, and render an appropriate message
+ * Simply attach a CSS animation to the DOM and render an appropriate message.
  * 
+ * @param  {String} message
  * @return {Void}
  */
 function doSpinner(message) {
-    // This function is called repeatedly, so clear the spinner first, and then
-    // re-attach
-    $('.spinner').remove();
+    // This function is called repeatedly, so clear the spinner first
+    $('.spinner-wrapper').remove();
     
-    // Create and attach with message
-    $spinner = '' +
+    // Create and re-attach with message
+    $spinner = $('' +
     '<div class="spinner-wrapper">' +
         '<p class="message">' + message + '</p>' +
         '<div class="spinner">' +
@@ -85,7 +86,7 @@ function doSpinner(message) {
             '<div class="rect4"></div>' +
             '<div class="rect5"></div>' +
         '</div>' +
-    '</div>';
+    '</div>');
       
-    $('body').attachTo($spinner);
+    $spinner.appendTo('body');
 }

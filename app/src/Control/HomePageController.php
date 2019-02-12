@@ -21,6 +21,7 @@ use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\TextField;
 use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\TextareaField;
+use SilverStripe\Forms\HiddenField;
 
 // Endroid: QR Code generation
 use Endroid\QrCode\QrCode;
@@ -104,6 +105,7 @@ class HomePageController extends PageController
         $paymentAmount = $this->paymentClient->getCurrency()::PAYMENT_AMOUNT;
         $paymentAddress = $this->paymentClient->getAddress();
         $paymentSymbol =  $this->paymentClient->getCurrency()->iso4217();
+        $minConfirmations = (int) SiteConfig::current_site_config()->getField('Confirmations') ?: 6;
 
         // Form fields
         $fields = FieldList::create([
@@ -120,6 +122,7 @@ class HomePageController extends PageController
                 'Payment Address',
                 $paymentAddress
             )->setAttribute('readonly', true),
+            HiddenField::create('MinConfs', null, $minConfirmations),
             LiteralField::create(
                 'AddressQR',
                 $this->qrCodeWrapper($paymentAddress, $paymentAmount)
@@ -131,7 +134,9 @@ class HomePageController extends PageController
         $validator = $this->getValidator(['PhoneTo', 'Body']);
 
         // Form proper
-        return Form::create($this, __FUNCTION__, $fields, FieldList::create(), $validator);
+        return Form::create($this, __FUNCTION__, $fields, FieldList::create(), $validator)
+                ->setAttribute('data-uri-confirmation', '/home/confirmations')
+                ->setAttribute('data-uri-thanks', '/thanks');
     }
 
     /**
@@ -345,18 +350,17 @@ class HomePageController extends PageController
             return $this->httpError(403);
         }
         
-        // Subscribe to BlockCypher API for TX's containing incoming address
-        $this->doPayment($request->postVars());
-        
         if ($client->isAddressBroadcasted($request->postVar('Address'))) {
-            $this->getResponse()->setBody($json = json_encode(['U' => 0]));
-        } else {        
-            $this->getResponse()->setBody(
-                $json = json_encode(['C' => $client->addressHasConfirations($request->postVar('Address'))])
-            );
+            // Send Bitcoin payment to address and subscribe to BlockCypher webhook
+            // for TX's containing incoming address
+            // TODO: confirmation() is called from AJAX repeatedly.
+            // need to prevent multiple SMS' being sent
+            $this->doPayment($request->postVars());
+            
+            return json_encode(['U' => 0]);
         }
         
-        return $json;
+        return json_encode(['C' => $client->addressHasConfirmations($request->postVar('Address'))]);
     }
 
     /**

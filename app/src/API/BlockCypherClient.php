@@ -168,7 +168,7 @@ class BlockCypherClient
      * @param  string $address
      * @return int
      */
-    public function addressHasConfirations(string $address) : int
+    public function addressHasConfirmations(string $address) : int
     {
         $context = $this->apiContext();
         $client = new AddressClient();

@@ -1,17 +1,39 @@
+html, body {
+    margin: 0;
+}
+
+.spinner-wrapper {
+    height: 100%; 
+    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background: #000;
+    opacity: 0.8;
+    text-align: center;
+}
+
+.spinner-wrapper > p.message {
+    margin-top: 100px;
+    font-weight: bold;
+    font-size: 1.5rem;
+    color: #FFF;
+}
+
 .spinner {
   margin: 100px auto;
-  width: 50px;
-  height: 40px;
+  width: 200px;
+  height: 400px;
   text-align: center;
   font-size: 10px;
 }
 
 .spinner > div {
-  background-color: #333;
+  background-color: #FC0;
+  border: solid 1px #000;
   height: 100%;
-  width: 6px;
+  width: 35px;
   display: inline-block;
-  
   -webkit-animation: sk-stretchdelay 1.2s infinite ease-in-out;
   animation: sk-stretchdelay 1.2s infinite ease-in-out;
 }
