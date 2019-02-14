@@ -5,6 +5,7 @@
 
 // The frequency at which we will hit our own endpoint
 var interval = 10000;
+var isStopped = false;
 
 (function($) {
     $(function() {
@@ -16,13 +17,19 @@ var interval = 10000;
             var endpointConf = $(this).closest('form').data('uri-confirmation');
             var endpointThanks = $(this).closest('form').data('uri-thanks');
             
-            if (!(body.length && phone.length && address.length && amount.length)) {
+            if (!(body.length && phone.length)) {
                 return;
             }
-
+            
             // Repeatedly hit the endpoint until such time as we redirect.
-            // This is super-hacky, we should use websockets, but it does the job.
+            // This is pretty messy but it works.
             setInterval(function() {
+                // Prevent repeated non-200 responses from controller endpoint
+                if (isStopped) {
+                    console.log('Stopped');
+                    return;
+                }
+                
                 $.ajax({
                     'type': 'POST',
                     'dataType': 'json',
@@ -34,28 +41,23 @@ var interval = 10000;
                     },
                     'url': endpointConf
                 })
-                // Exceptions from API clients can generate errors
-                // fail() === error()
+                // Exceptions from API clients result in non 200 HTTP codes
                 .fail(function (jqXHR, textStatus, errorThrown) {
-                    console.error(errorThrown, textStatus);
+                    console.log('Non HTTP 200 returned. Stopping. (HTTP ' + jqXHR.status + ')');
+                    isStopped = true;
                 })
-                // done() === success()
                 .done(function(data, textStatus, jqXHR) {
-                    var json = JSON.stringify(data);
-                    var status = json.U ? json.U : json.C;
-                    var minConfirmations = $('[name="MinConfs"]').val();
-                    var isConfirmed = (typeof status === 'number') && status <= minConfirmations;
-                    var isNotConfirmed = json.U;
-                    var isDone = (typeof status === 'number') && status > minConfirmations;
+                    var isUnconfirmed = (data === 0);
+                    var isConfirmed = (data === 1);
+                    var message = (isConfirmed ? 'Confirmed' : 'Unconfirmed');
 
-                    // Redifrect as soon as a positive result comes back
-                    if (isDone) {
+                    // Redirect as soon as a positive result comes back
+                    if (isConfirmed) {
                         return location.href = endpointThanks;
                     }
 
-                    // Show animation while minConfirmations or unconfirmed
-                    if (isConfirmed || isNotConfirmed) {
-                        var message = ((typeof status === 'number') ? 'Confirmations: ' + status : status) + '...';
+                    // Show animation while unconfirmed or unconfirmed
+                    if (isConfirmed || isUnconfirmed) {
                         doSpinner(message);
                     }
                 });
@@ -72,12 +74,14 @@ var interval = 10000;
  * @return {Void}
  */
 function doSpinner(message) {
-    // This function is called repeatedly, so clear the spinner first
-    $('.spinner-wrapper').remove();
+    // If it already exists in the DOM, no need to do it again
+    if (typeof $('.spinner-wrapper') !== 'undefined') {
+        return;
+    }
     
     // Create and re-attach with message
     $spinner = $('' +
-    '<div class="spinner-wrapper">' +
+    '<div class="spinner-wrapper hide">' +
         '<p class="message">' + message + '</p>' +
         '<div class="spinner">' +
             '<div class="rect1"></div>' +

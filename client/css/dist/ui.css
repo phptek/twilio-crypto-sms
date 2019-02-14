@@ -9,8 +9,8 @@ html, body {
     top: 0;
     left: 0;
     background: #000;
-    opacity: 0.8;
     text-align: center;
+    opacity: 0;
 }
 
 .spinner-wrapper > p.message {

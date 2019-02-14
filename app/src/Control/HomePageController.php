@@ -53,6 +53,10 @@ use SilverStripe\Forms\RequiredFields;
 */
 class HomePageController extends PageController
 {
+    const TX_UNCONFIRMED = 0;
+    const TX_CONFIRMED = 1;
+    const TX_UNPAID = 2;
+    
     /**
      * @var array
      */
@@ -87,6 +91,7 @@ class HomePageController extends PageController
         // Payment UI interactions
         Requirements::css('client/css/dist/ui.css');
         Requirements::javascript('client/js/lib/jquery/jquery-3.3.1.min.js');
+        Requirements::javascript('client/js/lib/jquery/jquery-ui.js');
         Requirements::javascript('client/js/dist/ui.js');        
     }
 
@@ -135,7 +140,7 @@ class HomePageController extends PageController
 
         // Form proper
         return Form::create($this, __FUNCTION__, $fields, FieldList::create(), $validator)
-                ->setAttribute('data-uri-confirmation', '/home/confirmations')
+                ->setAttribute('data-uri-confirmation', '/home/confirmation')
                 ->setAttribute('data-uri-thanks', '/thanks');
     }
 
@@ -157,6 +162,12 @@ class HomePageController extends PageController
      */
     public function doPayment(array $data)
     {
+        // Addresses are unique. So if we can find a saved (and therefore sent)
+        // message by the incoming address, just return.
+        if (Message::get()->filter('Address', $data['Address'])->count()) {
+            return;
+        }
+        
         $hash = $this->generateID($data);
 
         Message::create([
@@ -342,25 +353,31 @@ class HomePageController extends PageController
      * @return mixed null|string Null if invalid params were passed, otherwise a
      *                           JSON encoded string.
      */
-    public function confirmation(HTTPRequest $request) : string
-    {
-        $client = $this->paymentClient;
-        
+    public function confirmation(HTTPRequest $request)
+    {        
         if (!$request->isAjax() || !$request->isPOST()) {
             return $this->httpError(403);
         }
         
+        $client = $this->paymentClient;
+        $minConfirmations = (int) SiteConfig::current_site_config()->getField('Confirmations') ?: 6;
+        
         if ($client->isAddressBroadcasted($request->postVar('Address'))) {
-            // Send Bitcoin payment to address and subscribe to BlockCypher webhook
+            // Send ayment to address and subscribe to BlockCypher webhook
             // for TX's containing incoming address
-            // TODO: confirmation() is called from AJAX repeatedly.
-            // need to prevent multiple SMS' being sent
-            $this->doPayment($request->postVars());
+            // In case of error, return 403 for consumption by AJAX promise
+            if (!$this->doPayment($request->postVars())) {
+                return $this->httpError(403);
+            }
             
-            return json_encode(['U' => 0]);
+            return self::TX_UNCONFIRMED;
         }
         
-        return json_encode(['C' => $client->addressHasConfirmations($request->postVar('Address'))]);
+        if ($client->addressHasConfirmations($request->postVar('Address')) >= $minConfirmations) {
+            return self::TX_CONFIRMED;
+        }
+        
+        return self::TX_UNPAID;
     }
 
     /**
