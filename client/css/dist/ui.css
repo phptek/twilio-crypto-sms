@@ -10,7 +10,6 @@ html, body {
     left: 0;
     background: #000;
     text-align: center;
-    opacity: 0;
 }
 
 .spinner-wrapper > p.message {

@@ -26,7 +26,7 @@ var isStopped = false;
             setInterval(function() {
                 // Prevent repeated non-200 responses from controller endpoint
                 if (isStopped) {
-                    console.log('Stopped');
+                    uiError('Upstream error. Stopping');
                     return;
                 }
                 
@@ -43,7 +43,7 @@ var isStopped = false;
                 })
                 // Exceptions from API clients result in non 200 HTTP codes
                 .fail(function (jqXHR, textStatus, errorThrown) {
-                    console.log('Non HTTP 200 returned. Stopping. (HTTP ' + jqXHR.status + ')');
+                    console.log('Request failure (' + textStatus + ')');
                     isStopped = true;
                 })
                 .done(function(data, textStatus, jqXHR) {
@@ -58,7 +58,7 @@ var isStopped = false;
 
                     // Show animation while unconfirmed or unconfirmed
                     if (isConfirmed || isUnconfirmed) {
-                        doSpinner(message);
+                        uiSpinner(message);
                     }
                 });
             }, interval);
@@ -68,14 +68,14 @@ var isStopped = false;
 
 
 /**
- * Simply attach a CSS animation to the DOM and render an appropriate message.
+ * Attach an "In Progress" CSS animation to the DOM and render an appropriate message.
  * 
  * @param  {String} message
  * @return {Void}
  */
-function doSpinner(message) {
+function uiSpinner(message) {
     // If it already exists in the DOM, no need to do it again
-    if (typeof $('.spinner-wrapper') !== 'undefined') {
+    if ($('.spinner-wrapper').length) {
         return;
     }
     
@@ -93,4 +93,20 @@ function doSpinner(message) {
     '</div>');
       
     $spinner.appendTo('body');
+}
+
+/**
+ * Attach an "Error" CSS animation to the DOM and render an appropriate message.
+ * 
+ * @param  {String} message
+ * @return {Void}
+ */
+function uiError(message) {
+    // Create and re-attach with message
+    $error = $('' +
+    '<div class="error-wrapper hide">' +
+        '<p class="message">' + message + '</p>' +
+    '</div>');
+      
+    $error.appendTo('body');
 }
