@@ -35,27 +35,12 @@ use SilverStripe\Forms\RequiredFields;
 
 /**
  * Homepage controller complete with SMS Sending form.
- *
- * Exercises for the interested:
- *
- * SilverStripe:
- *
- * 1). Add phone-number validation.
- *   Hint: Search https://addons.silverstripe.org/ and modify $this->getValidator()
- * 2). Programmatically build a "Thanks" page, to avoid reliance on content authors.
- *   Hint: See {link DataObject::requireDefaultRecords()}.
- *
- * Cryptocurrency:
- *
- * 3). Obfuscate or encrypt wallet addresses in the database
- *
- * @todo Add payment confirmation config
-*/
+ */
 class HomePageController extends PageController
 {
-    const TX_UNCONFIRMED = 0;
-    const TX_CONFIRMED = 1;
-    const TX_UNPAID = 2;
+    const TX_NOT_BROADCAST = 0;
+    const TX_UNCONFIRMED = 1;
+    const TX_CONFIRMED = 2;
     
     /**
      * @var array
@@ -65,14 +50,7 @@ class HomePageController extends PageController
         'cbtwilio',
         'cbconfirmedpayment',
         'twiliosend',
-        'confirmation',
-    ];
-    
-    /**
-     * @var array
-     */
-    private static $url_handlers = [
-        '/home//$Address' => 'confirmation',
+        'messagestatus',
     ];
 
     public function init()
@@ -91,7 +69,6 @@ class HomePageController extends PageController
         // Payment UI interactions
         Requirements::css('client/css/dist/ui.css');
         Requirements::javascript('client/js/lib/jquery/jquery-3.3.1.min.js');
-        Requirements::javascript('client/js/lib/jquery/jquery-ui.js');
         Requirements::javascript('client/js/dist/ui.js');        
     }
 
@@ -140,7 +117,7 @@ class HomePageController extends PageController
 
         // Form proper
         return Form::create($this, __FUNCTION__, $fields, FieldList::create(), $validator)
-                ->setAttribute('data-uri-confirmation', '/home/confirmation')
+                ->setAttribute('data-uri-confirmation', '/home/messagestatus')
                 ->setAttribute('data-uri-thanks', '/thanks');
     }
 
@@ -149,10 +126,13 @@ class HomePageController extends PageController
      * XHR calls. It performs the following tasks:
      *
      * - Creates a Message object record containing form POST data
-     * - Sets up an event callback that upon discovery of transactions involving
-     *   the POSTed address, will POST to the given callback.
+     * - Sets up a Blockchain event callback that will POST to the given callback
+     *   upon discovery of transactions involving the POSTed address.
      * - The callback checks the response for a valid balance for the address
-     * - If the balance is OK: Sends SMS message + updates Message status + displays confirmation.
+     * - If the following are OK, Sends SMS message + updates Message status + displays confirmation.
+     * 1). Address balance is sufficient
+     * 2). Address is found in incoming request to cbconfirmedpayment()
+     * 3). No. confirmations is sufficient (See: cbconfirmedpayment()).
      *
      * @param  array $data
      * @return mixed null|BlockCypher\Api\WebHook
@@ -160,7 +140,7 @@ class HomePageController extends PageController
      *          Use Message record to contact customers and in accordance with
      *          jurisdictional law, reimburse.
      */
-    public function doPayment(array $data)
+    public function triggerMessage(array $data)
     {
         // Addresses are unique. So if we can find a saved (and therefore sent)
         // message by the incoming address, just return.
@@ -184,8 +164,6 @@ class HomePageController extends PageController
         // Initialise a WebHook connection on our web API service
         // We will only receive traffic from Blockcypher to our endpoint, when
         // 2 confirmations on TX's containing $data['Address'] have occurred.
-        // The no. confirmations is important. This could be made a SilverStripe
-        // "Settings" area parameter.
         $filter = [
             'event' => 'tx-confirmation',
             'confirmations' => (int) SiteConfig::current_site_config()->getField('Confirmations') ?: 6,
@@ -197,16 +175,18 @@ class HomePageController extends PageController
     }
 
     /**
-     * Physically perform the SMS sending procedure via Twilio. Once processed
-     * by Twilio, we expect it to call a callback on this controller (See the "statusCallback",
-     * key in the Twilio API logic below). This callback will then update the
-     * Message record's status (identified by a unique ID which we pass along
-     * to Twilio, and which Twilio sends us back.
+     * Physically performs the SMS sending procedure via Twilio.
+     * 
+     * Once processed by Twilio, we expect it to call a callback on this controller
+     * (See the "statusCallback" key in the Twilio API logic below).
+     * 
+     * This callback will then update the Message record's status (identified by
+     * a unique ID which we pass along to Twilio, and which Twilio sends us back).
      *
      * @param  Message A Message record comprising the original POSTed form data.
      * @return string  JSON data containing request message-sent data.
      */
-    public function smsSender(Message $message) : string
+    public function doSMSSend(Message $message) : string
     {
         $client = new TwilioClient(
             Env::getEnv('TWILIO_SID'),
@@ -227,24 +207,24 @@ class HomePageController extends PageController
     }
 
     /**
-     * Callback endpoint #1: For incoming requests from confirmed TX
-     * hook requests.
+     * Callback endpoint for incoming requests from TX hook requests.
      *
      * @param  HTTPRequest $request
      * @return mixed null|HTTPResponse
-     * @todo $request->getHeader('X-EventType') & $request->getHeader('X-EventId') ??
      */
     public function cbconfirmedpayment(HTTPRequest $request)
     {
         // Basic checks for solid incoming data
         if (
                 !$request->isPOST() ||
-                !$request->param('ID')
+                !$request->param('ID') ||
+                !$request->getHeader('x-eventid') ||
+                !$request->getHeader('x-eventtype')
             ) {
             // Bad request
             return $this->httpError('400');
         }
-
+        
         // Get a message with this ID, establish we have a legit request identifier
         $message = Message::get()
             // Incoming data is escaped automatically when using {@link DataList::filter()}.
@@ -255,18 +235,28 @@ class HomePageController extends PageController
             return $this->httpError('404');
         }
 
-        // If we've received the balance, we send the SMS
-        // We use the "cached" amount, to hedge against price volatility
-        if ($this->hasBalance($message->Address, $message->Amount)) {
+        // Update the message record's PayStatus, and send the SMS only if:
+        // 1). Our wallet address has received the balance
+        // 2). Our wallet address comprises the list of transaction output addresses
+        // 3). No. confirmations >= <no. configured in SilverStripe "settings" area>
+        $tx = json_decode($request->getBody(), true);
+        $txHasAddr = in_array($message->Address, $tx['outputs']['addresses']);
+        $txNumCnfs = $tx['confirmations'];
+        $hasPaid = $this->addressHasBalance($message->Address, $message->Amount);
+        $minCnfs = (int) SiteConfig::current_site_config()->getField('Confirmations') ?: 6;
+        $sendSMs = ($hasPaid && $txHasAddr && $txNumCnfs >= $minCnfs);
+        
+        if ($sendSMs) {
             // Update Message record status to PAID
             $message
                 ->update(['PayStatus'=> Message::PAY_PAID])
                 ->write();
 
-            // Send our SMS, wait for a response at the app's dedicated Twilio callback
-            if ($result = $this->smsSender($message)) {
+            // Wait for a response at the app's dedicated Twilio callback where we'll
+            // also update the message's "Sent" status
+            if ($result = $this->doSMSSend($message)) {
                 return $this->getResponse()->setBody($result);
-            }
+            }   
         }
 
         return $this->httpError('400');
@@ -275,7 +265,9 @@ class HomePageController extends PageController
     /**
      * A callback used by the Twilio service once it has received an
      * SMS message payload from us. At this point we know that payment has been
-     * received, and that the SMS message has been sent to, and received by Twilio.
+     * received, and that the SMS message has been sent to and received by Twilio.
+     * 
+     * We use it to simply update the various {@link Message} statuses.
      *
      * We expect x2 requests to this callback from the Twilio service. Each request
      * should have a different value for the incoming payload's "MessageStatus" key:
@@ -320,7 +312,7 @@ class HomePageController extends PageController
      * @param  float  $amount
      * @return bool
      */
-    public function hasBalance(string $address, float $amount) : bool
+    public function addressHasBalance(string $address, float $amount) : bool
     {
         $balance = $this->paymentClient->getBalance($address);
 
@@ -343,41 +335,36 @@ class HomePageController extends PageController
     }
     
     /**
-     * Internal endpoint used by the application to get the state of transactions
+     * Internal endpoint used by client-side logic to get the state of transactions
      * containing the address as an output. Used to drive e.g. UI components for
      * user feedback. Also handles the trigger to payment API to start it listening
-     * for appropriate TX's and subscribing to is responses. Ideally, we'd do this
-     * using WebSockets...
+     * for appropriate TX's and subscribing to is responses via triggerMessage().
      * 
      * @param  HTTPRequest $request
-     * @return mixed null|string Null if invalid params were passed, otherwise a
-     *                           JSON encoded string.
+     * @return mixed null|int Null if invalid params were passed, otherwise 1 or 0
+     *                        for confirmed and sent, or not, respectively.
      */
-    public function confirmation(HTTPRequest $request)
+    public function messagestatus(HTTPRequest $request)
     {        
         if (!$request->isAjax() || !$request->isPOST()) {
             return $this->httpError(403);
         }
-        
-        $client = $this->paymentClient;
+
+        $client = $this->paymentClient;        
+        $txBroadcasted = $client->isAddressBroadcasted($request->postVar('Address'));
         $minConfirmations = (int) SiteConfig::current_site_config()->getField('Confirmations') ?: 6;
         
-        if ($client->isAddressBroadcasted($request->postVar('Address'))) {
-            // Send ayment to address and subscribe to BlockCypher webhook
-            // for TX's containing incoming address
-            // In case of error, return 403 for consumption by AJAX promise
-            if (!$this->doPayment($request->postVars())) {
-                return $this->httpError(403);
-            }
+        // We don't need to use conditionals becuase each condition returns.
+        // But it does improve readability.
+        if ($txBroadcasted) {
+            $this->triggerMessage($request->postVars());
             
-            return self::TX_UNCONFIRMED;
+            return $this->getResponse()->setBody(self::TX_UNCONFIRMED);
+        } else if ($client->addressHasConfirmations($request->postVar('Address')) >= $minConfirmations) {
+            return $this->getResponse()->setBody(self::TX_CONFIRMED);
+        } else {
+            return $this->getResponse()->setBody(self::TX_NOT_BROADCAST);
         }
-        
-        if ($client->addressHasConfirmations($request->postVar('Address')) >= $minConfirmations) {
-            return self::TX_CONFIRMED;
-        }
-        
-        return self::TX_UNPAID;
     }
 
     /**

@@ -26,7 +26,7 @@ var isStopped = false;
             setInterval(function() {
                 // Prevent repeated non-200 responses from controller endpoint
                 if (isStopped) {
-                    uiError('Upstream error. Stopping');
+                    uiErrorComponent('Upstream error. Stopping');
                     return;
                 }
                 
@@ -47,18 +47,18 @@ var isStopped = false;
                     isStopped = true;
                 })
                 .done(function(data, textStatus, jqXHR) {
-                    var isUnconfirmed = (data === 0);
-                    var isConfirmed = (data === 1);
-                    var message = (isConfirmed ? 'Confirmed' : 'Unconfirmed');
-
-                    // Redirect as soon as a positive result comes back
-                    if (isConfirmed) {
-                        return location.href = endpointThanks;
-                    }
+                    var isUnconfirmed = (data === 1);
+                    var isConfirmed = (data === 2);
+                    var message = (isConfirmed ? 'Confirmed' : 'Unconfirmed') + '...';
 
                     // Show animation while unconfirmed or unconfirmed
                     if (isConfirmed || isUnconfirmed) {
-                        uiSpinner(message);
+                        uiSpinnerComponent(message);
+                        
+                        // Redirect as soon as a positive result comes back
+                        if (isConfirmed) {
+                            return location.href = endpointThanks;
+                        }
                     }
                 });
             }, interval);
@@ -73,7 +73,7 @@ var isStopped = false;
  * @param  {String} message
  * @return {Void}
  */
-function uiSpinner(message) {
+function uiSpinnerComponent(message) {
     // If it already exists in the DOM, no need to do it again
     if ($('.spinner-wrapper').length) {
         return;
@@ -101,7 +101,7 @@ function uiSpinner(message) {
  * @param  {String} message
  * @return {Void}
  */
-function uiError(message) {
+function uiErrorComponent(message) {
     // Create and re-attach with message
     $error = $('' +
     '<div class="error-wrapper hide">' +

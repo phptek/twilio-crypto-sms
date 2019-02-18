@@ -14,7 +14,6 @@ use SilverStripe\Core\Environment as Env;
 use BlockCypher\Auth\SimpleTokenCredential;
 use BlockCypher\Rest\ApiContext;
 use BlockCypher\Client\AddressClient;
-use BlockCypher\Api\Address;
 use BlockCypher\Client\TXClient;
 use BlockCypher\Api\WebHook;
 

@@ -43,7 +43,7 @@ class SettingsExtension extends DataExtension
             TextField::create('Confirmations')
                 ->setAttribute('style', 'width:100px')
                 ->setAttribute('maxlength', '1')
-                ->setDescription('The number of confirmations required before an SMS is sent.')
+                ->setDescription('The number of Bitcoin transaction confirmations required, before an SMS should be sent.')
         ]);
     }
     
