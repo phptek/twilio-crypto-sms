@@ -9,7 +9,7 @@ var isStopped = false;
 
 (function($) {
     $(function() {
-        $('#Form_TwilioSMSForm input, #Form_TwilioSMSForm textarea').blur(function(e) {
+        $('.sms-trigger').blur(function(e) {
             var body = $('[name="Body"]').val();
             var phone = $('[name="PhoneTo"]').val();
             var address = $('[name="Address"]').val();
@@ -22,7 +22,7 @@ var isStopped = false;
             }
             
             // Repeatedly hit the endpoint until such time as we redirect.
-            // This is pretty messy but it works.
+            // This is pretty cludgy but it works.
             setInterval(function() {
                 // Prevent repeated non-200 responses from controller endpoint
                 if (isStopped) {
@@ -47,8 +47,8 @@ var isStopped = false;
                     isStopped = true;
                 })
                 .done(function(data, textStatus, jqXHR) {
-                    var isUnconfirmed = (data === 1);
-                    var isConfirmed = (data === 2);
+                    var isUnconfirmed = (data === 2);
+                    var isConfirmed = (data === 3);
                     var message = (isConfirmed ? 'Confirmed' : 'Unconfirmed') + '...';
 
                     // Show animation while unconfirmed or unconfirmed

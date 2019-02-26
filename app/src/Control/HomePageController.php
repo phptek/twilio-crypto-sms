@@ -38,9 +38,10 @@ use SilverStripe\Forms\RequiredFields;
  */
 class HomePageController extends PageController
 {
-    const TX_NOT_BROADCAST = 0;
-    const TX_UNCONFIRMED = 1;
-    const TX_CONFIRMED = 2;
+    const TX_INIT = 0;
+    const TX_NOT_BROADCAST = 1;
+    const TX_UNCONFIRMED = 2;
+    const TX_CONFIRMED = 3;
     
     /**
      * @var array
@@ -50,7 +51,7 @@ class HomePageController extends PageController
         'cbtwilio',
         'cbconfirmedpayment',
         'twiliosend',
-        'messagestatus',
+        'trigger',
     ];
 
     public function init()
@@ -92,8 +93,10 @@ class HomePageController extends PageController
         // Form fields
         $fields = FieldList::create([
             TextField::create('PhoneTo', 'Send to Phone Number')
-                ->setAttribute('placeholder', 'e.g +64 12 123 4567'),
-            TextareaField::create('Body', 'Message'),
+                ->setAttribute('placeholder', 'e.g +64 12 123 4567')
+                ->addExtraClass('sms-trigger'),
+            TextareaField::create('Body', 'Message')
+                ->addExtraClass('sms-trigger'),
             TextField::create(
                 'Amount',
                 sprintf('Price (%s)', $paymentSymbol),
@@ -117,7 +120,7 @@ class HomePageController extends PageController
 
         // Form proper
         return Form::create($this, __FUNCTION__, $fields, FieldList::create(), $validator)
-                ->setAttribute('data-uri-confirmation', '/home/messagestatus')
+                ->setAttribute('data-uri-confirmation', '/home/trigger')
                 ->setAttribute('data-uri-thanks', '/thanks');
     }
 
@@ -125,7 +128,6 @@ class HomePageController extends PageController
      * Called on submission of the form (if submit button used) or from JavaScript
      * XHR calls. It performs the following tasks:
      *
-     * - Creates a Message object record containing form POST data
      * - Sets up a Blockchain event callback that will POST to the given callback
      *   upon discovery of transactions involving the POSTed address.
      * - The callback checks the response for a valid balance for the address
@@ -134,33 +136,13 @@ class HomePageController extends PageController
      * 2). Address is found in incoming request to cbconfirmedpayment()
      * 3). No. confirmations is sufficient (See: cbconfirmedpayment()).
      *
-     * @param  array $data
+     * @param  array  $data
+     * @param  string $hash
+     * @param  string $callback
      * @return mixed null|BlockCypher\Api\WebHook
-     * @todo   What happens when an API call fails, yet users have already paid?
-     *          Use Message record to contact customers and in accordance with
-     *          jurisdictional law, reimburse.
      */
-    public function triggerMessage(array $data)
+    public function webhookListen(array $data, string $hash, string $callback)
     {
-        // Addresses are unique. So if we can find a saved (and therefore sent)
-        // message by the incoming address, just return.
-        if (Message::get()->filter('Address', $data['Address'])->count()) {
-            return;
-        }
-        
-        $hash = $this->generateID($data);
-
-        Message::create([
-            'Body'      => $data['Body'],
-            'PhoneTo'   => $data['PhoneTo'],
-            'PhoneFrom' => Env::getEnv('TWILIO_PHONE_FROM'),
-            'Address'   => $data['Address'],
-            'Amount'    => $this->paymentClient->getCurrency()::PAYMENT_AMOUNT,
-            'MsgHash'   => $hash,
-            'MsgStatus' => Message::MSG_PENDING,
-            'PayStatus' => Message::PAY_PENDING,
-        ])->write();
-
         // Initialise a WebHook connection on our web API service
         // We will only receive traffic from Blockcypher to our endpoint, when
         // 2 confirmations on TX's containing $data['Address'] have occurred.
@@ -169,7 +151,7 @@ class HomePageController extends PageController
             'confirmations' => (int) SiteConfig::current_site_config()->getField('Confirmations') ?: 6,
             'address' => $data['Address'],
         ];
-        $url = Director::absoluteURL(sprintf('/home/cbconfirmedpayment/%s', $hash));
+        $url = Director::absoluteURL(sprintf('%s/%s', rtrim($callback, '/'), $hash));
         
         return $this->paymentClient->subscribeHook($filter, $url);
     }
@@ -221,8 +203,7 @@ class HomePageController extends PageController
                 !$request->getHeader('x-eventid') ||
                 !$request->getHeader('x-eventtype')
             ) {
-            // Bad request
-            return $this->httpError('400');
+            return $this->httpError(400, 'Bad request');
         }
         
         // Get a message with this ID, establish we have a legit request identifier
@@ -232,7 +213,7 @@ class HomePageController extends PageController
             ->first();
 
         if (!$message || !$message->exists() || $message->MsgStatus === Message::MSG_SENT) {
-            return $this->httpError('404');
+            return $this->httpError(404);
         }
 
         // Update the message record's PayStatus, and send the SMS only if:
@@ -240,13 +221,27 @@ class HomePageController extends PageController
         // 2). Our wallet address comprises the list of transaction output addresses
         // 3). No. confirmations >= <no. configured in SilverStripe "settings" area>
         $tx = json_decode($request->getBody(), true);
-        $txHasAddr = in_array($message->Address, $tx['outputs']['addresses']);
+        // Ideally, we'd load returned JSON into {@link TX} object and call getOutputs() on it
+        $txHasAddr = false;
+        array_walk_recursive($tx['outputs'], function($v, $k) use($message, &$txHasAddr) {
+            if (in_array($message->Address, $v)) {
+                $txHasAddr = true;
+            }
+        });
         $txNumCnfs = $tx['confirmations'];
-        $hasPaid = $this->addressHasBalance($message->Address, $message->Amount);
+        $paymentReceived = $this->addressHasBalance($message->Address, $message->Amount);
         $minCnfs = (int) SiteConfig::current_site_config()->getField('Confirmations') ?: 6;
-        $sendSMs = ($hasPaid && $txHasAddr && $txNumCnfs >= $minCnfs);
+        $doSendSMs = ($paymentReceived && $txHasAddr && ($txNumCnfs >= $minCnfs));
         
-        if ($sendSMs) {
+        file_put_contents('/tmp/cbconfirmedpayment.out', __FUNCTION__ . var_export([
+            'TX' => $tx,
+            'TXHasAddr' => $txHasAddr,
+            'TXNumConfs' => $txNumCnfs,
+            'PaymentReceived' => $paymentReceived,
+            'MinConfs' => $minCnfs,
+        ], true) . PHP_EOL, FILE_APPEND);
+        
+        if ($doSendSMs) {
             // Update Message record status to PAID
             $message
                 ->update(['PayStatus'=> Message::PAY_PAID])
@@ -256,18 +251,18 @@ class HomePageController extends PageController
             // also update the message's "Sent" status
             if ($result = $this->doSMSSend($message)) {
                 return $this->getResponse()->setBody($result);
-            }   
+            }
         }
 
-        return $this->httpError('400');
+        return $this->httpError(400);
     }
 
     /**
      * A callback used by the Twilio service once it has received an
      * SMS message payload from us. At this point we know that payment has been
-     * received, and that the SMS message has been sent to and received by Twilio.
+     * received, and that the SMS message has been received by Twilio.
      * 
-     * We use it to simply update the various {@link Message} statuses.
+     * We use it to simply update the status of the relevant {@link Message}.
      *
      * We expect x2 requests to this callback from the Twilio service. Each request
      * should have a different value for the incoming payload's "MessageStatus" key:
@@ -335,36 +330,78 @@ class HomePageController extends PageController
     }
     
     /**
-     * Internal endpoint used by client-side logic to get the state of transactions
-     * containing the address as an output. Used to drive e.g. UI components for
-     * user feedback. Also handles the trigger to payment API to start it listening
-     * for appropriate TX's and subscribing to is responses via triggerMessage().
+     * Internal endpoint used by client-side logic, used to drive e.g. UI
+     * components for user feedback and which:
+     * 
+     * - Creates a {@link Message} database record.
+     * - Checks if the payee's TC was broadcasted.
+     * - Triggers listening to the Blockcypher API for TX's containing our address.
+     * - Returns the state of TX's containing the address as an output. 
      * 
      * @param  HTTPRequest $request
      * @return mixed null|int Null if invalid params were passed, otherwise 1 or 0
      *                        for confirmed and sent, or not, respectively.
      */
-    public function messagestatus(HTTPRequest $request)
+    public function trigger(HTTPRequest $request)
     {        
         if (!$request->isAjax() || !$request->isPOST()) {
-            return $this->httpError(403);
+            return $this->httpError(400, 'Bad request');
         }
 
         $client = $this->paymentClient;        
-        $txBroadcasted = $client->isAddressBroadcasted($request->postVar('Address'));
+        $txIsBroadcasted = $client->isAddressBroadcasted($request->postVar('Address'));
         $minConfirmations = (int) SiteConfig::current_site_config()->getField('Confirmations') ?: 6;
+        $messageList = Message::get()->filter('Address', $request->postVar('Address'));
+        $message = $messageList->first();
         
-        // We don't need to use conditionals becuase each condition returns.
-        // But it does improve readability.
-        if ($txBroadcasted) {
-            $this->triggerMessage($request->postVars());
+        file_put_contents('/tmp/trigger.out', __FUNCTION__ . var_export([
+            'TXIsBroadcasted' => $txIsBroadcasted,
+            'MinConfs' => $minConfirmations,
+            'MsgExists' => $message->exists(),
+        ], true) . PHP_EOL, FILE_APPEND);
+        
+        // We don't need to use conditionals because each condition returns, but
+        // they do improve readability.
+        if ($txIsBroadcasted) {
+            // Use existence of Message record to ensure we don't repeatedly ping the API
+            // for webhook subscription requests
+            if (!$message->exists()) {
+                $hash = $this->generateID($request->postVars());
+                $this->writeMessage($request->postVars(), $hash);
+                $this->webhookListen($request->postVars(), $hash, '/home/cbconfirmedpayment');
+                
+                return $this->getResponse()->setBody(self::TX_INIT);
+            }
             
             return $this->getResponse()->setBody(self::TX_UNCONFIRMED);
-        } else if ($client->addressHasConfirmations($request->postVar('Address')) >= $minConfirmations) {
+        } else if ($message->hasPaid()) {
+            // Message records are set to "PAID" when no. confs >= our requirements
+            // ergo the TX's that paid for them are confirmed
             return $this->getResponse()->setBody(self::TX_CONFIRMED);
         } else {
             return $this->getResponse()->setBody(self::TX_NOT_BROADCAST);
         }
+    }
+    
+    /**
+     * Write a message record.
+     * 
+     * @param  array  $data
+     * @param  string $hash
+     * @return void
+     */
+    public function writeMessage(array $data, string $hash) : void
+    {
+        Message::create([
+            'Body'      => $data['Body'],
+            'PhoneTo'   => $data['PhoneTo'],
+            'PhoneFrom' => Env::getEnv('TWILIO_PHONE_FROM'),
+            'Address'   => $data['Address'],
+            'Amount'    => $this->paymentClient->getCurrency()::PAYMENT_AMOUNT,
+            'MsgHash'   => $hash,
+            'MsgStatus' => Message::MSG_PENDING,
+            'PayStatus' => Message::PAY_PENDING,
+        ])->write();
     }
 
     /**
