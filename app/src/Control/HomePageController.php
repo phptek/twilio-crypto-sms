@@ -354,10 +354,14 @@ class HomePageController extends PageController
         $messageList = Message::get()->filter('Address', $request->postVar('Address'));
         $message = $messageList->first();
         
+        if (!$message || !$message->exists()) {
+            return $this->httpError(404, 'Not found');
+        }
+        
         file_put_contents('/tmp/trigger.out', __FUNCTION__ . var_export([
             'TXIsBroadcasted' => $txIsBroadcasted,
             'MinConfs' => $minConfirmations,
-            'MsgExists' => $message->exists(),
+            'MsgExists' => $message && $message->exists(),
         ], true) . PHP_EOL, FILE_APPEND);
         
         // We don't need to use conditionals because each condition returns, but
