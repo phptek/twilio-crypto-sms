@@ -160,6 +160,21 @@ class BlockCypherClient
         
         return false;
     }
+    
+    /**
+     * Determine the number of confirmations this address has.
+     * 
+     * @param  string $address
+     * @return int
+     */
+    public function addressHasConfirmations(string $address) : int
+    {
+        $context = $this->apiContext();
+        $client = new AddressClient();
+        $addr = $client->get($address, [], $context);
+        
+        return $addr->getNTx();
+    }
 
     /**
      * Get an SDK ApiContext for this client.

@@ -27,6 +27,9 @@
             "install-frameworkmissing.html",
             "install.php",
             "web.config"
+        ],
+        "expose": [
+            "client"
         ]
     },
     "prefer-stable": true,

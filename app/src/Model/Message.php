@@ -81,5 +81,15 @@ class Message extends DataObject
     {
         return false;
     }
+    
+    /**
+     * Has this message been paid for?
+     * 
+     * @return bool
+     */
+    public function hasPaid() : bool
+    {
+        return $this->PayStatus == self::PAY_PAID;
+    }
 
 }
