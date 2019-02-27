@@ -11,6 +11,8 @@ use SilverStripe\ORM\DataExtension;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\TextField;
 use SilverStripe\Forms\LiteralField;
+use SilverStripe\Assets\Image;
+use SilverStripe\AssetAdmin\Forms\UploadField;
 
 /**
  * Simple {@link DataExtension} to illustrate how to extend the CMS interface.
@@ -23,6 +25,13 @@ class SettingsExtension extends DataExtension
     private static $db = [
         'Amount' => 'Varchar',
         'Confirmations' => 'Varchar',
+    ];
+    
+    /**
+     * @var array
+     */
+    private static $has_one = [
+        'QRCodeLogo' => Image::class,
     ];
 
     /**
@@ -43,8 +52,29 @@ class SettingsExtension extends DataExtension
             TextField::create('Confirmations')
                 ->setAttribute('style', 'width:100px')
                 ->setAttribute('maxlength', '1')
-                ->setDescription('The number of Bitcoin transaction confirmations required, before an SMS should be sent.')
+                ->setDescription('The number of Bitcoin transaction confirmations required, before an SMS should be sent.'),
+            UploadField::create('QRCodeLogo', 'QR Code Logo')
+                ->setDescription('The logo to use in QR payment codes'),
         ]);
+    }
+    
+    /**
+     * Return the full-path to a logo for use in payment QR code.
+     * 
+     * @return string
+     */
+    public function qrLogo() : string
+    {
+        if ($this->owner->QRCodeLogo()->exists()) {
+            return sprintf(
+                '%s/Uploads/%s/%s',
+                ASSETS_PATH,
+                str_split($this->owner->QRCodeLogo()->getHash(), 10)[0],
+                $this->owner->QRCodeLogo()->Name
+            );
+        }
+        
+        return '';
     }
     
 }

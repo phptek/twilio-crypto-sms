@@ -456,6 +456,11 @@ class HomePageController extends PageController
         $qrCode->setWriterByName('png');
         $qrCode->setLabel($message, 11);
         $qrCode->setMargin(1);
+        
+        if ($path = SiteConfig::current_site_config()->qrLogo()) {
+            $qrCode->setLogoPath($path); 
+            $qrCode->setLogoSize(40, 40);
+        }
 
         return $qrCode->writeDataUri();
     }
