@@ -69,7 +69,7 @@ var isStopped = false;
                             break;
                     }
 
-                    // Show animation while unconfirmed or unconfirmed
+                    // Show animation with appropriate message
                     uiSpinnerComponent(message + '...');
                     
                     if (isConfirmed) {
