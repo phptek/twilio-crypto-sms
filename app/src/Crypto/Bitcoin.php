@@ -17,9 +17,7 @@ class Bitcoin implements Currency
 {
     /**
      * The amount in Bitcoin that a single message costs to send.
-     * 
-     * @todo Take the current miners fee from Blockcypher API and adjust the PAYMENT_AMOUNT
-     * so that we always make USD 0.005 or 325 Satoshi each time.
+     *
      * @var string
      */
     const PAYMENT_AMOUNT = '0.00000750'; // 750 Satoshi ~= USD 0.03
@@ -64,5 +62,4 @@ class Bitcoin implements Currency
     {
         return 'XBT';
     }
-
 }

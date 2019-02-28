@@ -51,5 +51,4 @@ interface Currency
      * @return string
      */
     public function iso4217() : string;
-
 }

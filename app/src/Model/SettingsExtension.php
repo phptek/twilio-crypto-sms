@@ -47,7 +47,7 @@ class SettingsExtension extends DataExtension
                 . 'section to control how things are paid for.</p>'),
             TextField::create('Amount', 'Amount')
                 ->setAttribute('style', 'width:100px')
-                ->setAttribute('maxlength', '11')            
+                ->setAttribute('maxlength', '11')
                 ->setDescription('The amount in Satoshi to charge per SMS'),
             TextField::create('Confirmations')
                 ->setAttribute('style', 'width:100px')
@@ -60,7 +60,7 @@ class SettingsExtension extends DataExtension
     
     /**
      * Return the full-path to a logo for use in payment QR code.
-     * 
+     *
      * @return string
      */
     public function qrLogo() : string
@@ -76,5 +76,4 @@ class SettingsExtension extends DataExtension
         
         return '';
     }
-    
 }
