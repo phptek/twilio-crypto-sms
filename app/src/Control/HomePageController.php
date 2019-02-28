@@ -42,6 +42,7 @@ class HomePageController extends PageController
     const TX_NOT_BROADCAST = 1;
     const TX_UNCONFIRMED = 2;
     const TX_CONFIRMED = 3;
+    const TX_ERROR = 4;
     
     /**
      * @var array
@@ -218,16 +219,17 @@ class HomePageController extends PageController
 
         // Update the message record's PayStatus, and send the SMS only if:
         // 1). Our wallet address has received the balance
-        // 2). Our wallet address comprises the list of transaction output addresses
-        // 3). No. confirmations >= <no. configured in SilverStripe "settings" area>
+        // 2). Our wallet address's TX outputs, comprises our addresse
+        // 3). No. confirmations >= no. confs configured in SilverStripe "settings" area
         $tx = json_decode($request->getBody(), true);
+        
         // Ideally, we'd load returned JSON into {@link TX} object and call getOutputs() on it
         $txHasAddr = false;
-        array_walk_recursive($tx['outputs'], function($v, $k) use($message, &$txHasAddr) {
-            if (in_array($message->Address, $v)) {
-                $txHasAddr = true;
-            }
-        });
+        
+        if (in_array($message->Address, $tx['outputs'][0]['addresses'])) {
+            $txHasAddr = true;
+        }
+        
         $txNumCnfs = $tx['confirmations'];
         $paymentReceived = $this->addressHasBalance($message->Address, $message->Amount);
         $minCnfs = (int) SiteConfig::current_site_config()->getField('Confirmations') ?: 6;
@@ -349,19 +351,21 @@ class HomePageController extends PageController
         }
 
         $client = $this->paymentClient;        
-        $txIsBroadcasted = $client->isAddressBroadcasted($request->postVar('Address'));
+        
+        // Sometimes Blockcypher comes back with a 429
+        try {
+            $txIsBroadcasted = $client->isAddressBroadcasted($request->postVar('Address'));
+        } catch (\Exception $e) {
+            return $this->getResponse()->setBody(self::TX_ERROR);
+        }
+        
         $minConfirmations = (int) SiteConfig::current_site_config()->getField('Confirmations') ?: 6;
         $messageList = Message::get()->filter('Address', $request->postVar('Address'));
         $message = $messageList->first();
         
-        if (!$message || !$message->exists()) {
-            return $this->httpError(404, 'Not found');
-        }
-        
         file_put_contents('/tmp/trigger.out', __FUNCTION__ . var_export([
             'TXIsBroadcasted' => $txIsBroadcasted,
             'MinConfs' => $minConfirmations,
-            'MsgExists' => $message && $message->exists(),
         ], true) . PHP_EOL, FILE_APPEND);
         
         // We don't need to use conditionals because each condition returns, but
@@ -369,7 +373,7 @@ class HomePageController extends PageController
         if ($txIsBroadcasted) {
             // Use existence of Message record to ensure we don't repeatedly ping the API
             // for webhook subscription requests
-            if (!$message->exists()) {
+            if (!$message || !$message->exists()) {
                 $hash = $this->generateID($request->postVars());
                 $this->writeMessage($request->postVars(), $hash);
                 $this->webhookListen($request->postVars(), $hash, '/home/cbconfirmedpayment');
@@ -378,7 +382,7 @@ class HomePageController extends PageController
             }
             
             return $this->getResponse()->setBody(self::TX_UNCONFIRMED);
-        } else if ($message->hasPaid()) {
+        } else if ($message && $message->exists() && $message->hasPaid()) {
             // Message records are set to "PAID" when no. confs >= our requirements
             // ergo the TX's that paid for them are confirmed
             return $this->getResponse()->setBody(self::TX_CONFIRMED);

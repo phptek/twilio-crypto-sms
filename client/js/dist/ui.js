@@ -16,6 +16,8 @@ var isStopped = false;
             var amount = $('[name="Amount"]').val();
             var endpointConf = $(this).closest('form').data('uri-confirmation');
             var endpointThanks = $(this).closest('form').data('uri-thanks');
+            var message = '';
+            var isConfirmed = false;
             
             if (!(body.length && phone.length)) {
                 return;
@@ -46,19 +48,33 @@ var isStopped = false;
                     console.log('Request failure (' + textStatus + ')');
                     isStopped = true;
                 })
-                .done(function(data, textStatus, jqXHR) {
-                    var isUnconfirmed = (data === 2);
-                    var isConfirmed = (data === 3);
-                    var message = (isConfirmed ? 'Confirmed' : 'Unconfirmed') + '...';
+                .done(function(data, textStatus, jqXHR) {            
+                    switch (data) {
+                        case 0:
+                        default:
+                            message = 'Waiting';
+                            break;
+                        case 1:
+                            message = 'Broadcasting';
+                            break;
+                        case 2:
+                            message = 'Confirming';
+                            break;
+                        case 3:
+                            message = 'Confirmed';
+                            isConfirmed = true;
+                            break;
+                        case 4:
+                            message = 'Error';
+                            break;
+                    }
 
                     // Show animation while unconfirmed or unconfirmed
-                    if (isConfirmed || isUnconfirmed) {
-                        uiSpinnerComponent(message);
-                        
+                    uiSpinnerComponent(message + '...');
+                    
+                    if (isConfirmed) {
                         // Redirect as soon as a positive result comes back
-                        if (isConfirmed) {
-                            return location.href = endpointThanks;
-                        }
+                        return location.href = endpointThanks;
                     }
                 });
             }, interval);
@@ -76,7 +92,7 @@ var isStopped = false;
 function uiSpinnerComponent(message) {
     // If it already exists in the DOM, no need to do it again
     if ($('.spinner-wrapper').length) {
-        return;
+        $('.spinner-wrapper').remove();
     }
     
     // Create and re-attach with message
