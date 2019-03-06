@@ -135,7 +135,7 @@ class BlockCypherClient
      * Queries the network for unconfirmed transactions broadcasted at around the
      * time this method is called. It can be used to filter transactions containing
      * a given address passed-in by: $filter['address'].
-     * 
+     *
      * In a production system, utilise BlockCypher's "confidence factor" to determine
      * liklihood of double-spends.
      *
@@ -163,7 +163,7 @@ class BlockCypherClient
     
     /**
      * Determine the number of confirmations this address has.
-     * 
+     *
      * @param  string $address
      * @return int
      */
@@ -200,5 +200,4 @@ class BlockCypherClient
             $config
         );
     }
-
 }
