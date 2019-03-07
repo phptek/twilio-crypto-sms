@@ -85,7 +85,7 @@ class PageController extends ContentController
     public function TwilioSMSForm()
     {
         $paymentAmount = $this->paymentClient->getCurrency()::PAYMENT_AMOUNT;
-        $paymentAddress = $this->paymentClient->getAddress();
+        $paymentAddress = $this->getInvoice();
         $paymentSymbol =  $this->paymentClient->getCurrency()->iso4217();
         $minConfirmations = (int) SiteConfig::current_site_config()->getField('Confirmations') ?: 6;
 
@@ -121,6 +121,22 @@ class PageController extends ContentController
         return Form::create($this, __FUNCTION__, $fields, FieldList::create(), $validator)
                 ->setAttribute('data-uri-confirmation', sprintf('%s/trigger', rtrim($this->Link(), '/')))
                 ->setAttribute('data-uri-thanks', '/thanks');
+    }
+    
+    /**
+     * Fetch an invoice / address for use in QR codes for payments
+     * 
+     * @return string
+     */
+    public function getInvoice() : string
+    {
+        if (ENV::getEnv('APP_PAYMENT_ADDRESS')) {
+            $invoice = ENV::getEnv('APP_PAYMENT_ADDRESS');
+        } else {
+            $invoice = $this->paymentClient->getAddress();
+        }
+        
+        return $invoice;
     }
 
     /**

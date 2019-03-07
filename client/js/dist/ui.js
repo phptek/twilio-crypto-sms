@@ -45,7 +45,6 @@ var isStopped = false;
                 })
                 // Exceptions from API clients result in non 200 HTTP codes
                 .fail(function (jqXHR, textStatus, errorThrown) {
-                    console.log('Request failure (' + textStatus + ')');
                     isStopped = true;
                 })
                 .done(function(data, textStatus, jqXHR) {            
@@ -66,6 +65,7 @@ var isStopped = false;
                             break;
                         case 4:
                             message = 'Error';
+                            isStopped = true;
                             break;
                     }
 

@@ -26,8 +26,9 @@ class Page extends SiteTree
 
         if (!$pages->first()) {
             $page = Page::create([
-                        'Title' => $thanksPageTitle,
-                        'Content' => '<p>Thanks! Your message is winging its way home</p>',
+                'Title' => $thanksPageTitle,
+                'Content' => '<p>Thanks! Your message is winging its way home</p>',
+                'ShowInMenus' => 0,
             ]);
             $page->write();
             $page->publishRecursive();
