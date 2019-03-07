@@ -15,9 +15,7 @@ var isStopped = false;
             var address = $('[name="Address"]').val();
             var amount = $('[name="Amount"]').val();
             var endpointConf = $(this).closest('form').data('uri-confirmation');
-            var endpointThanks = $(this).closest('form').data('uri-thanks');
             var message = '';
-            var isConfirmed = false;
             
             if (!(body.length && phone.length)) {
                 return;
@@ -51,17 +49,16 @@ var isStopped = false;
                     switch (data) {
                         case 0:
                         default:
-                            message = 'Waiting';
+                            message = 'Waiting..';
                             break;
                         case 1:
-                            message = 'Broadcasting';
+                            message = 'Broadcasting..';
                             break;
                         case 2:
-                            message = 'Confirming';
+                            message = 'Confirming..';
                             break;
                         case 3:
-                            message = 'Confirmed';
-                            isConfirmed = true;
+                            message = 'Confirmed! Message sent.';
                             break;
                         case 4:
                             message = 'Error';
@@ -70,12 +67,7 @@ var isStopped = false;
                     }
 
                     // Show animation with appropriate message
-                    uiSpinnerComponent(message + '...');
-                    
-                    if (isConfirmed) {
-                        // Redirect as soon as a positive result comes back
-                        return location.href = endpointThanks;
-                    }
+                    uiSpinnerComponent(message);
                 });
             }, interval);
         });

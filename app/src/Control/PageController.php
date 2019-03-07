@@ -119,8 +119,7 @@ class PageController extends ContentController
 
         // Form proper
         return Form::create($this, __FUNCTION__, $fields, FieldList::create(), $validator)
-                ->setAttribute('data-uri-confirmation', sprintf('%s/trigger', rtrim($this->Link(), '/')))
-                ->setAttribute('data-uri-thanks', '/thanks');
+                ->setAttribute('data-uri-confirmation', sprintf('%s/trigger', rtrim($this->Link(), '/')));
     }
     
     /**
