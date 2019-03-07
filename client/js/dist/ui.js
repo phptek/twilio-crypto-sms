@@ -9,7 +9,7 @@ var isStopped = false;
 
 (function($) {
     $(function() {
-        $('.sms-trigger').blur(function(e) {
+        $('.sms-trigger').blur(function(e) {            
             var body = $('[name="Body"]').val();
             var phone = $('[name="PhoneTo"]').val();
             var address = $('[name="Address"]').val();
@@ -20,6 +20,9 @@ var isStopped = false;
             if (!(body.length && phone.length)) {
                 return;
             }
+            
+            // Append the spinner
+            uiSpinnerComponent('Waiting..');
             
             // Repeatedly hit the endpoint until such time as we redirect.
             // This is pretty cludgy but it works.
@@ -62,6 +65,7 @@ var isStopped = false;
                             break;
                         case 4:
                             message = 'Error';
+                            // Prevent repeated non-200 responses from controller endpoint
                             isStopped = true;
                             break;
                     }
