@@ -1,14 +1,50 @@
-version: '3.1'
+# Reference: https://docs.docker.com/compose/compose-file/
+version: "3.7"
 services:
   webapp:
-    build: .
+    build:
+      context: .
+      args:
+        DOCROOT: /var/www/html/silverstripe/
+    # Or URL to git repo
+    image: webapp:silverstripe-twilio
     ports:
-      - 9000:9000
+      # <host>:<container>
+      - "8080:80"
+    links:
+      - db
     depends_on:
-      - mariadb
-  mariadb:
-    image: mariadb:latest
-    restart: always
+      - db
+    volumes:
+      # <host>:<container>
+      - ./:/var/www/html/silverstripe
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: SS_twilio
+      # Twilio & Bitcoin
+      TWILIO_SID: "Dummy"
+      TWILIO_TOK: "Dummy"
+      TWILIO_PHONE_FROM: "Dummy"
+      BLOCKCYPHER_TOK: "Dummy"
+      # Core
+      SS_DATABASE_CLASS: "MySQLDatabase"
+      SS_DATABASE_SERVER: db
+      SS_DATABASE_PORT: "3306"
+      SS_DATABASE_USERNAME: "twilio"
+      SS_DATABASE_PASSWORD: "twilio"
+      SS_DATABASE_NAME: "twilio"
+      SS_ENVIRONMENT_TYPE: "dev"
+      SS_DEFAULT_ADMIN_USERNAME: "admin"
+      SS_DEFAULT_ADMIN_PASSWORD: "password"
+  db:
+    image: mariadb:10.1
+    restart: unless-stopped
+    volumes:
+      # <host>:<container>
+      - ./.docker/mysql:/var/lib/mysql
+      - ./.docker/scripts:/tmp/init.sql
+    command: mysqld --init-file="/tmp/init.sql"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_USER=twilio
+      - MYSQL_PASSWORD=twilio
+      # Create a MySQL DB called "twilio" on container init
+      - MYSQL_DATABASE=twilio

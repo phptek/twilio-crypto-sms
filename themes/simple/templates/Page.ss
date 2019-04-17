@@ -32,7 +32,11 @@ Change it, enhance it and most importantly enjoy it!
 <% include Header %>
 <div class="main" role="main">
 	<div class="inner typography line">
-		$Layout
+		<% if $Form %>
+        $Form
+        <% else %>
+        $Layout
+        <% end_if %>
 	</div>
 </div>
 <% include Footer %>
