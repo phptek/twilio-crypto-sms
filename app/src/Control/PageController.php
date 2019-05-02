@@ -467,7 +467,8 @@ class PageController extends ContentController
         $qrCode = new QrCode($this->paymentClient->getCurrency()->uriScheme($address, $amount));
         $qrCode->setSize(400);
         $qrCode->setWriterByName('png');
-        $qrCode->setLabel($message, 11);
+        // Problems with Docker image, mean FreeType libs are not installed
+        // $qrCode->setLabel($message, 11);
         $qrCode->setMargin(1);
         
         if ($path = SiteConfig::current_site_config()->qrLogo()) {

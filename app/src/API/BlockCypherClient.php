@@ -21,9 +21,8 @@ use BlockCypher\Api\WebHook;
 use SMSCryptoApp\Crypto\Currency;
 
 /**
- * An implementation of {@link ClientProvider} for querying the Bitcoin and Ethereum
- * blockchains via the BlockCypher Rest API using its various endpoint-specific
- * clients.
+ * For querying the Bitcoin blockchain via the BlockCypher Rest API using its
+ * various endpoint-specific clients.
  *
  * You will need an account with BlockCypher in order to make use of its API:
  * - https://accounts.blockcypher.com/signup.
@@ -137,7 +136,8 @@ class BlockCypherClient
      * a given address passed-in by: $filter['address'].
      *
      * In a production system, utilise BlockCypher's "confidence factor" to determine
-     * liklihood of double-spends.
+     * liklihood of double-spends, which in turn will inform you or your app whether
+     * or not to accept unconfirmed transactions.
      *
      * @param  string  $address
      * @return bool    True if $address is found as an output on a broadcasted

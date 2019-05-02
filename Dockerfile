@@ -28,13 +28,18 @@ ADD .docker/apache/000-default.conf /etc/apache2/sites-available/
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -qqy && \
     DEBIAN_FRONTEND=noninteractive apt-get update -qqy && \
     DEBIAN_FRONTEND=noninteractive apt-get dist-upgrade -qqy && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -qqy sudo gnupg wget \
+    DEBIAN_FRONTEND=noninteractive apt-get install -qqy \
+    sudo gnupg wget \
     vim zip unzip libgmp-dev \
     libcurl3-dev git zlib1g zlib1g-dev \
-    libtidy-dev libicu-dev libxml2-dev libpng-dev \
-    libjpeg-dev mariadb-server mariadb-client && \
+    libgd3 libgd-dev libpng-dev libjpeg-dev \
+    libtidy-dev libicu-dev libxml2-dev \
+    mariadb-server mariadb-client && \
     docker-php-ext-install zip mysqli intl gd gmp bcmath tidy && \
-    pecl install msgpack && docker-php-ext-enable msgpack && \
+    pecl install msgpack && \
+    docker-php-ext-enable msgpack && \
+    docker-php-ext-configure gd --with-freetype-dir=/usr/include/ && \
+    rm -rf /var/lib/apt/lists/* && \
     mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini" && \
     sed -i 's#memory_limit = [0-9]+M#memory_limit = 512M#g' "$PHP_INI_DIR/php.ini" && \
     wget -O /usr/local/bin/composer https://getcomposer.org/composer.phar && chmod +x /usr/local/bin/composer && \

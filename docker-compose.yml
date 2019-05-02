@@ -20,10 +20,10 @@ services:
       - ./:/var/www/html/silverstripe
     environment:
       # Twilio & Bitcoin
-      TWILIO_SID: "Dummy"
-      TWILIO_TOK: "Dummy"
-      TWILIO_PHONE_FROM: "Dummy"
-      BLOCKCYPHER_TOK: "Dummy"
+      TWILIO_SID: "DUMMY"
+      TWILIO_TOK: "DUMMY"
+      TWILIO_PHONE_FROM: "DUMMY"
+      BLOCKCYPHER_TOK: "DUMMY"
       # Core
       SS_DATABASE_CLASS: "MySQLDatabase"
       SS_DATABASE_SERVER: db
